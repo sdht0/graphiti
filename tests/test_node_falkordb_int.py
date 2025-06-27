@@ -38,7 +38,6 @@ try:
 
     HAS_FALKORDB = True
 except ImportError:
-    FalkorDriver = None
     HAS_FALKORDB = False
 
 
@@ -84,7 +83,7 @@ def sample_community_node():
 async def test_entity_node_save_get_and_delete(sample_entity_node):
     falkor_driver = FalkorDriver(
         host=FALKORDB_HOST,
-        port=FALKORDB_PORT,
+        port=int(FALKORDB_PORT),
         username=FALKORDB_USER,
         password=FALKORDB_PASSWORD
     )
@@ -106,7 +105,7 @@ async def test_entity_node_save_get_and_delete(sample_entity_node):
 async def test_community_node_save_get_and_delete(sample_community_node):
     falkor_driver = FalkorDriver(
         host=FALKORDB_HOST,
-        port=FALKORDB_PORT,
+        port=int(FALKORDB_PORT),
         username=FALKORDB_USER,
         password=FALKORDB_PASSWORD
     )
@@ -129,7 +128,7 @@ async def test_community_node_save_get_and_delete(sample_community_node):
 async def test_episodic_node_save_get_and_delete(sample_episodic_node):
     falkor_driver = FalkorDriver(
         host=FALKORDB_HOST,
-        port=FALKORDB_PORT,
+        port=int(FALKORDB_PORT),
         username=FALKORDB_USER,
         password=FALKORDB_PASSWORD
     )

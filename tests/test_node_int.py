@@ -19,8 +19,8 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 import pytest
-from neo4j import AsyncGraphDatabase
 
+from graphiti_core.driver.neo4j_driver import Neo4jDriver
 from graphiti_core.nodes import (
     CommunityNode,
     EntityNode,
@@ -72,7 +72,7 @@ def sample_community_node():
 @pytest.mark.asyncio
 @pytest.mark.integration
 async def test_entity_node_save_get_and_delete(sample_entity_node):
-    neo4j_driver = AsyncGraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
+    neo4j_driver = Neo4jDriver(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD)
     await sample_entity_node.save(neo4j_driver)
     retrieved = await EntityNode.get_by_uuid(neo4j_driver, sample_entity_node.uuid)
     assert retrieved.uuid == sample_entity_node.uuid
@@ -87,7 +87,7 @@ async def test_entity_node_save_get_and_delete(sample_entity_node):
 @pytest.mark.asyncio
 @pytest.mark.integration
 async def test_community_node_save_get_and_delete(sample_community_node):
-    neo4j_driver = AsyncGraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
+    neo4j_driver = Neo4jDriver(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD)
 
     await sample_community_node.save(neo4j_driver)
 
@@ -105,7 +105,7 @@ async def test_community_node_save_get_and_delete(sample_community_node):
 @pytest.mark.asyncio
 @pytest.mark.integration
 async def test_episodic_node_save_get_and_delete(sample_episodic_node):
-    neo4j_driver = AsyncGraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
+    neo4j_driver = Neo4jDriver(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD)
 
     await sample_episodic_node.save(neo4j_driver)
 

@@ -26,7 +26,7 @@ from dotenv import load_dotenv
 from graphiti_core.edges import EntityEdge, EpisodicEdge
 from graphiti_core.graphiti import Graphiti
 from graphiti_core.helpers import semaphore_gather
-from graphiti_core.nodes import EntityNode, EpisodicNode
+from graphiti_core.nodes import EntityNode, EpisodeType, EpisodicNode
 from graphiti_core.search.search_helpers import search_results_to_context_string
 
 try:
@@ -34,7 +34,6 @@ try:
 
     HAS_FALKORDB = True
 except ImportError:
-    FalkorDriver = None
     HAS_FALKORDB = False
 
 pytestmark = pytest.mark.integration
@@ -77,7 +76,7 @@ async def test_graphiti_falkordb_init():
 
     falkor_driver = FalkorDriver(
         host=FALKORDB_HOST,
-        port=FALKORDB_PORT,
+        port=int(FALKORDB_PORT),
         username=FALKORDB_USER,
         password=FALKORDB_PASSWORD
     )
@@ -98,7 +97,7 @@ async def test_graphiti_falkordb_init():
 async def test_graph_falkordb_integration():
     falkor_driver = FalkorDriver(
         host=FALKORDB_HOST,
-        port=FALKORDB_PORT,
+        port=int(FALKORDB_PORT),
         username=FALKORDB_USER,
         password=FALKORDB_PASSWORD
     )
@@ -113,10 +112,11 @@ async def test_graph_falkordb_integration():
         labels=[],
         created_at=now,
         valid_at=now,
-        source='message',
+        source=EpisodeType.message,
         source_description='conversation message',
         content='Alice likes Bob',
         entity_edges=[],
+        group_id='test_group',
     )
 
     alice_node = EntityNode(
@@ -124,16 +124,17 @@ async def test_graph_falkordb_integration():
         labels=[],
         created_at=now,
         summary='Alice summary',
+        group_id='test_group',
     )
 
-    bob_node = EntityNode(name='Bob', labels=[], created_at=now, summary='Bob summary')
+    bob_node = EntityNode(name='Bob', labels=[], created_at=now, summary='Bob summary', group_id='test_group')
 
     episodic_edge_1 = EpisodicEdge(
-        source_node_uuid=episode.uuid, target_node_uuid=alice_node.uuid, created_at=now
+        source_node_uuid=episode.uuid, target_node_uuid=alice_node.uuid, created_at=now, group_id='test_group'
     )
 
     episodic_edge_2 = EpisodicEdge(
-        source_node_uuid=episode.uuid, target_node_uuid=bob_node.uuid, created_at=now
+        source_node_uuid=episode.uuid, target_node_uuid=bob_node.uuid, created_at=now, group_id='test_group'
     )
 
     entity_edge = EntityEdge(
@@ -146,6 +147,7 @@ async def test_graph_falkordb_integration():
         expired_at=now,
         valid_at=now,
         invalid_at=now,
+        group_id='test_group',
     )
 
     await entity_edge.generate_embedding(embedder)
