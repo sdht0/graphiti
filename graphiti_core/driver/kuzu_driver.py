@@ -15,7 +15,6 @@ limitations under the License.
 """
 
 import logging
-from collections.abc import Coroutine
 from typing import Any
 
 import kuzu
@@ -25,6 +24,34 @@ from graphiti_core.driver.driver import GraphDriver, GraphDriverSession
 from graphiti_core.helpers import DEFAULT_DATABASE
 
 logger = logging.getLogger(__name__)
+
+class KuzuDriverSession(GraphDriverSession):
+    def __init__(self, connection: kuzu.AsyncConnection):
+        self.connection = connection
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        # No cleanup needed for Kuzu, but method must exist
+        pass
+
+    async def close(self):
+        # No explicit close needed for Kuzu, but method must exist
+        pass
+
+    async def execute_write(self, func, *args, **kwargs):
+        # Directly await the provided async function with `self` as the transaction/session
+        return await func(self, *args, **kwargs)
+
+    async def run(self, query: str | list, **kwargs: Any) -> Any:
+        if isinstance(query, list):
+            for cypher, params in query:
+                await self.connection.execute(str(cypher), params)
+        else:
+            params = dict(kwargs)
+            await self.connection.execute(str(query), params)
+        return None
 
 
 class KuzuDriver(GraphDriver):
@@ -45,8 +72,8 @@ class KuzuDriver(GraphDriver):
 
         return result
 
-    def session(self, database: str) -> GraphDriverSession:
-        return self.client.session(database=database)  # type: ignore
+    def session(self, _database: str) -> GraphDriverSession:
+        return KuzuDriverSession(self.client)
 
     async def close(self):
         self.client.close()

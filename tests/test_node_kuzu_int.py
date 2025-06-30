@@ -66,42 +66,42 @@ def sample_community_node():
 
 @pytest.mark.asyncio
 async def test_entity_node_save_get_and_delete(sample_entity_node):
-    neo4j_driver = KuzuDriver()
-    await sample_entity_node.save(neo4j_driver)
-    retrieved = await EntityNode.get_by_uuid(neo4j_driver, sample_entity_node.uuid)
+    kuzu_driver = KuzuDriver()
+    await sample_entity_node.save(kuzu_driver)
+    retrieved = await EntityNode.get_by_uuid(kuzu_driver, sample_entity_node.uuid)
     assert retrieved.uuid == sample_entity_node.uuid
     assert retrieved.name == 'Test Entity'
     assert retrieved.group_id == 'test_group'
 
-    await sample_entity_node.delete(neo4j_driver)
+    await sample_entity_node.delete(kuzu_driver)
 
-    await neo4j_driver.close()
+    await kuzu_driver.close()
 
 
 @pytest.mark.asyncio
 async def test_community_node_save_get_and_delete(sample_community_node):
-    neo4j_driver = KuzuDriver()
+    kuzu_driver = KuzuDriver()
 
-    await sample_community_node.save(neo4j_driver)
+    await sample_community_node.save(kuzu_driver)
 
-    retrieved = await CommunityNode.get_by_uuid(neo4j_driver, sample_community_node.uuid)
+    retrieved = await CommunityNode.get_by_uuid(kuzu_driver, sample_community_node.uuid)
     assert retrieved.uuid == sample_community_node.uuid
     assert retrieved.name == 'Community A'
     assert retrieved.group_id == 'test_group'
     assert retrieved.summary == 'Community summary'
 
-    await sample_community_node.delete(neo4j_driver)
+    await sample_community_node.delete(kuzu_driver)
 
-    await neo4j_driver.close()
+    await kuzu_driver.close()
 
 
 @pytest.mark.asyncio
 async def test_episodic_node_save_get_and_delete(sample_episodic_node):
-    neo4j_driver = KuzuDriver()
+    kuzu_driver = KuzuDriver()
 
-    await sample_episodic_node.save(neo4j_driver)
+    await sample_episodic_node.save(kuzu_driver)
 
-    retrieved = await EpisodicNode.get_by_uuid(neo4j_driver, sample_episodic_node.uuid)
+    retrieved = await EpisodicNode.get_by_uuid(kuzu_driver, sample_episodic_node.uuid)
     assert retrieved.uuid == sample_episodic_node.uuid
     assert retrieved.name == 'Episode 1'
     assert retrieved.group_id == 'test_group'
@@ -109,6 +109,6 @@ async def test_episodic_node_save_get_and_delete(sample_episodic_node):
     assert retrieved.source_description == 'Test source'
     assert retrieved.content == 'Some content here'
 
-    await sample_episodic_node.delete(neo4j_driver)
+    await sample_episodic_node.delete(kuzu_driver)
 
-    await neo4j_driver.close()
+    await kuzu_driver.close()
