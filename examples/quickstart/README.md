@@ -2,7 +2,7 @@
 
 This example demonstrates the basic functionality of Graphiti, including:
 
-1. Connecting to a Neo4j or FalkorDB database
+1. Connecting to a graph database
 2. Initializing Graphiti indices and constraints
 3. Adding episodes to the graph
 4. Searching the graph with semantic and keyword matching
@@ -12,13 +12,15 @@ This example demonstrates the basic functionality of Graphiti, including:
 ## Prerequisites
 
 - Python 3.9+  
-- OpenAI API key (set as `OPENAI_API_KEY` environment variable)  
+- OpenAI API key (set as `OPENAI_API_KEY` environment variable)
+- **For Kuzu** (default):
+  - Run in memory-mode by default, which does not need any setup.
+  - Optionally, configure `KUZU_DB_PATH` to persist the graph to disk 
 - **For Neo4j**:
   - Neo4j Desktop installed and running  
   - A local DBMS created and started in Neo4j Desktop  
 - **For FalkorDB**:
   - FalkorDB server running (see [FalkorDB documentation](https://falkordb.com/docs/) for setup)
-
 
 ## Setup Instructions
 
@@ -34,10 +36,14 @@ pip install graphiti-core
 # Required for LLM and embedding
 export OPENAI_API_KEY=your_openai_api_key
 
+# Optional Kuzu database path (defaults shown)
+export KUZU_DB_PATH=:memory:
+
 # Optional Neo4j connection parameters (defaults shown)
 export NEO4J_URI=bolt://localhost:7687
 export NEO4J_USER=neo4j
 export NEO4J_PASSWORD=password
+export DEFAULT_DATABASE=default_db
 
 # Optional FalkorDB connection parameters (defaults shown)
 export FALKORDB_URI=falkor://localhost:6379
@@ -46,15 +52,18 @@ export FALKORDB_URI=falkor://localhost:6379
 3. Run the example:
 
 ```bash
-python quickstart_neo4j.py
+python quickstart.py
+
+# For Neo4j
+python quickstart.py neo4j
 
 # For FalkorDB
-python quickstart_falkordb.py
+python quickstart.py falkordb
 ```
 
 ## What This Example Demonstrates
 
-- **Graph Initialization**: Setting up the Graphiti indices and constraints in Neo4j or FalkorDB
+- **Graph Initialization**: Setting up the Graphiti indices and constraints
 - **Adding Episodes**: Adding text content that will be analyzed and converted into knowledge graph nodes and edges
 - **Edge Search Functionality**: Performing hybrid searches that combine semantic similarity and BM25 retrieval to find relationships (edges)
 - **Graph-Aware Search**: Using the source node UUID from the top search result to rerank additional search results based on graph distance

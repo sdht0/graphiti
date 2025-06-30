@@ -20,11 +20,13 @@ import logging
 import os
 from datetime import datetime, timezone
 from logging import INFO
+import sys
 
 from dotenv import load_dotenv
 
 from graphiti_core import Graphiti
 from graphiti_core.driver.falkordb_driver import FalkorDriver
+from graphiti_core.driver.kuzu_driver import KuzuDriver
 from graphiti_core.nodes import EpisodeType
 from graphiti_core.search.search_config_recipes import NODE_HYBRID_SEARCH_RRF
 
@@ -32,7 +34,7 @@ from graphiti_core.search.search_config_recipes import NODE_HYBRID_SEARCH_RRF
 # CONFIGURATION
 #################################################
 # Set up logging and environment variables for
-# connecting to FalkorDB database
+# connecting to the graph database
 #################################################
 
 # Configure logging
@@ -45,16 +47,52 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-# FalkorDB connection parameters
-# Make sure FalkorDB (on-premises) is running — see https://docs.falkordb.com/
-# By default, FalkorDB does not require a username or password,
-# but you can set them via environment variables for added security.
-# 
-# If you're using FalkorDB Cloud, set the environment variables accordingly.
-# For on-premises use, you can leave them as None or set them to your preferred values.
-#
-# The default host and port are 'localhost' and '6379', respectively.
-# You can override these values in your environment variables or directly in the code.
+# Get the database type from the command line arguments
+db_type = sys.argv[1] if len(sys.argv) > 1 else 'kuzu'
+
+if db_type == 'kuzu':
+    # Kuzu connection parameters
+    kuzu_db = os.environ.get('KUZU_DB_PATH', ':memory:')
+
+    # Initialize Graphiti with Kuzu connection
+    graphiti = Graphiti(graph_driver=KuzuDriver(kuzu_db))
+
+elif db_type == 'neo4j':
+    # Neo4j connection parameters
+    # Make sure Neo4j is running with a local DBMS started
+    neo4j_uri = os.environ.get('NEO4J_URI', 'bolt://localhost:7687')
+    neo4j_user = os.environ.get('NEO4J_USER', 'neo4j')
+    neo4j_password = os.environ.get('NEO4J_PASSWORD', 'password')
+
+    if not neo4j_uri or not neo4j_user or not neo4j_password:
+        raise ValueError('NEO4J_URI, NEO4J_USER, and NEO4J_PASSWORD must be set')
+
+    # Initialize Graphiti with Neo4j connection
+    graphiti = Graphiti(neo4j_uri, neo4j_user, neo4j_password)
+
+elif db_type == 'falkordb':
+    # FalkorDB connection parameters
+    # Make sure FalkorDB (on-premises) is running — see https://docs.falkordb.com/
+    # By default, FalkorDB does not require a username or password,
+    # but you can set them via environment variables for added security.
+    # 
+    # If you're using FalkorDB Cloud, set the environment variables accordingly.
+    # For on-premises use, you can leave them as None or set them to your preferred values.
+    #
+    # The default host and port are 'localhost' and '6379', respectively.
+    # You can override these values in your environment variables or directly in the code.
+
+    falkor_username = os.environ.get('FALKORDB_USERNAME', None)
+    falkor_password = os.environ.get('FALKORDB_PASSWORD', None)
+    falkor_host = os.environ.get('FALKORDB_HOST', 'localhost')
+    falkor_port = os.environ.get('FALKORDB_PORT', '6379')
+
+    # Initialize Graphiti with FalkorDB connection
+    falkor_driver = FalkorDriver(host=falkor_host, port=int(falkor_port), username=falkor_username, password=falkor_password)
+    graphiti = Graphiti(graph_driver=falkor_driver)
+
+else:
+    raise ValueError(f'Invalid database type: {db_type}')
 
 falkor_username = os.environ.get('FALKORDB_USERNAME', None)
 falkor_password = os.environ.get('FALKORDB_PASSWORD', None)
@@ -65,14 +103,9 @@ async def main():
     #################################################
     # INITIALIZATION
     #################################################
-    # Connect to FalkorDB and set up Graphiti indices
-    # This is required before using other Graphiti
-    # functionality
+    # Set up Graphiti indices. This is required before
+    # using other Graphiti functionality.
     #################################################
-
-    # Initialize Graphiti with FalkorDB connection
-    falkor_driver = FalkorDriver(host=falkor_host, port=falkor_port, username=falkor_username, password=falkor_password)
-    graphiti = Graphiti(graph_driver=falkor_driver)
 
     try:
         # Initialize the graph database with graphiti's indices. This only needs to be done once.
@@ -237,7 +270,7 @@ async def main():
         #################################################
         # CLEANUP
         #################################################
-        # Always close the connection to FalkorDB when
+        # Always close the connection when
         # finished to properly release resources
         #################################################
 
