@@ -16,5 +16,6 @@ limitations under the License.
 
 from falkordb import FalkorDB
 from neo4j import Neo4jDriver
+from kuzu import Database
 
-__all__ = ['Neo4jDriver', 'FalkorDB']
+__all__ = ['Neo4jDriver', 'FalkorDB', 'Database']
