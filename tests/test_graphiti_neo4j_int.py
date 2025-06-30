@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import unittest
 import logging
 import os
 import sys
@@ -28,15 +29,22 @@ from graphiti_core.helpers import semaphore_gather
 from graphiti_core.nodes import EntityNode, EpisodeType, EpisodicNode
 from graphiti_core.search.search_helpers import search_results_to_context_string
 
+try:
+    from graphiti_core.driver.neo4j_driver import Neo4jDriver
+
+    HAS_NEO4J = True
+except ImportError:
+    HAS_NEO4J = False
+
 pytestmark = pytest.mark.integration
 
 pytest_plugins = ('pytest_asyncio',)
 
 load_dotenv()
 
-NEO4J_URI = os.getenv('NEO4J_URI')
-NEO4j_USER = os.getenv('NEO4J_USER')
-NEO4j_PASSWORD = os.getenv('NEO4J_PASSWORD')
+NEO4J_URI = os.getenv('NEO4J_URI', 'bolt://localhost:7687')
+NEO4J_USER = os.getenv('NEO4J_USER', 'neo4j')
+NEO4J_PASSWORD = os.getenv('NEO4J_PASSWORD', 'test')
 
 
 def setup_logging():
@@ -61,9 +69,10 @@ def setup_logging():
 
 
 @pytest.mark.asyncio
+@unittest.skipIf(not HAS_NEO4J, "Neo4j is not installed")
 async def test_graphiti_init():
     logger = setup_logging()
-    graphiti = Graphiti(NEO4J_URI, NEO4j_USER, NEO4j_PASSWORD)
+    graphiti = Graphiti(graph_driver=Neo4jDriver(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD))
 
     results = await graphiti.search_(query='Who is the user?')
 
@@ -75,8 +84,9 @@ async def test_graphiti_init():
 
 
 @pytest.mark.asyncio
+@unittest.skipIf(not HAS_NEO4J, "Neo4j is not installed")
 async def test_graph_integration():
-    client = Graphiti(NEO4J_URI, NEO4j_USER, NEO4j_PASSWORD)
+    client = Graphiti(graph_driver=Neo4jDriver(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD))
     embedder = client.embedder
     driver = client.driver
 
