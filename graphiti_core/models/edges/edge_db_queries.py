@@ -14,6 +14,30 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+KUZU_EDGE_SCHEMA = """
+CREATE REL TABLE IF NOT EXISTS MENTIONS(
+    FROM Episodic TO Entity,
+    uuid STRING PRIMARY KEY,
+    group_id STRING,
+    created_at TIMESTAMP,
+    fact_embedding FLOAT[]
+);
+CREATE REL TABLE IF NOT EXISTS RELATES_TO(
+    FROM Entity TO Entity,
+    uuid STRING PRIMARY KEY,
+    group_id STRING,
+    created_at TIMESTAMP,
+    fact_embedding FLOAT[]
+);
+CREATE REL TABLE IF NOT EXISTS HAS_MEMBER(
+    FROM Community TO Entity,
+    FROM Community TO Community,
+    uuid STRING PRIMARY KEY,
+    group_id STRING,
+    created_at TIMESTAMP
+);
+"""
+
 EPISODIC_EDGE_SAVE = """
         MATCH (episode:Episodic {uuid: $episode_uuid}) 
         MATCH (node:Entity {uuid: $entity_uuid}) 

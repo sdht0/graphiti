@@ -14,27 +14,74 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+KUZU_NODE_SCHEMA = """
+CREATE NODE TABLE IF NOT EXISTS Episodic (
+    uuid STRING PRIMARY KEY,
+    name STRING,
+    group_id STRING,
+    source_description STRING,
+    source STRING,
+    content STRING,
+    entity_edges STRING[],
+    created_at TIMESTAMP,
+    valid_at TIMESTAMP
+);
+CREATE NODE TABLE IF NOT EXISTS Entity (
+    uuid STRING PRIMARY KEY,
+    labels STRING[],
+    name STRING,
+    name_embedding FLOAT[],
+    group_id STRING,
+    summary STRING,
+    created_at TIMESTAMP
+);
+CREATE NODE TABLE IF NOT EXISTS Community (
+    uuid STRING PRIMARY KEY,
+    labels STRING[],
+    name STRING,
+    group_id STRING,
+    summary STRING,
+    created_at TIMESTAMP,
+    name_embedding FLOAT[]
+);
+"""
+
 EPISODIC_NODE_SAVE = """
-        MERGE (n:Episodic {uuid: $uuid})
-        SET n = {uuid: $uuid, name: $name, group_id: $group_id, source_description: $source_description, source: $source, content: $content, 
+    MERGE (n:Episodic {uuid: $uuid})
+    SET n = {uuid: $uuid, name: $name, group_id: $group_id,
+        source_description: $source_description, source: $source, content: $content,
         entity_edges: $entity_edges, created_at: $created_at, valid_at: $valid_at}
-        RETURN n.uuid AS uuid"""
+    RETURN n.uuid AS uuid
+"""
 
 EPISODIC_NODE_SAVE_BULK = """
     UNWIND $episodes AS episode
     MERGE (n:Episodic {uuid: episode.uuid})
-    SET n = {uuid: episode.uuid, name: episode.name, group_id: episode.group_id, source_description: episode.source_description, 
-        source: episode.source, content: episode.content, 
-    entity_edges: episode.entity_edges, created_at: episode.created_at, valid_at: episode.valid_at}
+    SET n = {uuid: episode.uuid, name: episode.name, group_id: episode.group_id,
+        source_description: episode.source_description, source: episode.source,
+        content: episode.content, entity_edges: episode.entity_edges,
+        created_at: episode.created_at, valid_at: episode.valid_at}
     RETURN n.uuid AS uuid
 """
 
-ENTITY_NODE_SAVE = """
-        MERGE (n:Entity {uuid: $entity_data.uuid})
-        SET n:$($labels)
-        SET n = $entity_data
-        WITH n CALL db.create.setNodeVectorProperty(n, "name_embedding", $entity_data.name_embedding)
-        RETURN n.uuid AS uuid"""
+ENTITY_NODE_SAVE = lambda provider: """
+    MERGE (n:Entity {uuid: $uuid})
+    SET
+        n.labels = $labels,
+        n.name = $name,
+        n.name_embedding = $name_embedding,
+        n.group_id = $group_id,
+        n.summary = $summary,
+        n.created_at = $created_at
+    WITH n
+    RETURN n.uuid AS uuid
+""" if provider == 'kuzu' else """
+    MERGE (n:Entity {uuid: $entity_data.uuid})
+    SET n:$($labels)
+    SET n = $entity_data
+    WITH n CALL db.create.setNodeVectorProperty(n, "name_embedding", $entity_data.name_embedding)
+    RETURN n.uuid AS uuid
+"""
 
 ENTITY_NODE_SAVE_BULK = """
     UNWIND $nodes AS node
@@ -45,8 +92,19 @@ ENTITY_NODE_SAVE_BULK = """
     RETURN n.uuid AS uuid
 """
 
+ENTITY_NODE_RETURN = lambda provider: """
+    RETURN
+        n as attributes,
+        n.labels as labels
+""" if provider == 'kuzu' else """
+    RETURN
+        properties(n) AS attributes,
+        labels(n) AS labels
+"""
+
 COMMUNITY_NODE_SAVE = """
-        MERGE (n:Community {uuid: $uuid})
-        SET n = {uuid: $uuid, name: $name, group_id: $group_id, summary: $summary, created_at: $created_at}
-        WITH n CALL db.create.setNodeVectorProperty(n, "name_embedding", $name_embedding)
-        RETURN n.uuid AS uuid"""
+    MERGE (n:Community {uuid: $uuid})
+    SET n = {uuid: $uuid, name: $name, group_id: $group_id, summary: $summary, created_at: $created_at}
+    WITH n CALL db.create.setNodeVectorProperty(n, "name_embedding", $name_embedding)
+    RETURN n.uuid AS uuid
+"""

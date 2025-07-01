@@ -360,7 +360,7 @@ async def node_fulltext_search(
             WHERE n:Entity
         """
         + filter_query
-        + ENTITY_NODE_RETURN
+        + ENTITY_NODE_RETURN(driver.provider)
         + """
         ORDER BY score DESC
         """
@@ -411,7 +411,7 @@ async def node_similarity_search(
         + get_vector_cosine_func_query('n.name_embedding', '$search_vector', driver.provider)
         + """ AS score
         WHERE score > $min_score"""
-        + ENTITY_NODE_RETURN
+        + ENTITY_NODE_RETURN(driver.provider)
         + """
         ORDER BY score DESC
         LIMIT $limit
@@ -449,12 +449,12 @@ async def node_bfs_search(
 
     query = (
         """
-                            UNWIND $bfs_origin_node_uuids AS origin_uuid
-                            MATCH (origin:Entity|Episodic {uuid: origin_uuid})-[:RELATES_TO|MENTIONS]->{1,3}(n:Entity)
-                            WHERE n.group_id = origin.group_id
-                            """
+        UNWIND $bfs_origin_node_uuids AS origin_uuid
+        MATCH (origin:Entity|Episodic {uuid: origin_uuid})-[:RELATES_TO|MENTIONS]->{1,3}(n:Entity)
+        WHERE n.group_id = origin.group_id
+        """
         + filter_query
-        + ENTITY_NODE_RETURN
+        + ENTITY_NODE_RETURN(driver.provider)
         + """
         LIMIT $limit
         """

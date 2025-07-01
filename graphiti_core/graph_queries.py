@@ -9,11 +9,14 @@ from typing import Any
 
 from typing_extensions import LiteralString
 
+from graphiti_core.driver.kuzu_driver import KuzuDriver
 from graphiti_core.models.edges.edge_db_queries import (
+    KUZU_EDGE_SCHEMA,
     ENTITY_EDGE_SAVE_BULK,
 )
 from graphiti_core.models.nodes.node_db_queries import (
     ENTITY_NODE_SAVE_BULK,
+    KUZU_NODE_SCHEMA,
 )
 
 # Mapping from Neo4j fulltext index names to FalkorDB node labels
@@ -147,3 +150,8 @@ def get_entity_edge_save_bulk_query(db_type: str = 'neo4j') -> str:
         RETURN edge.uuid AS uuid"""
     else:
         return ENTITY_EDGE_SAVE_BULK
+
+
+async def create_kuzu_schema(kuzu_driver: KuzuDriver):
+    await kuzu_driver.execute_query(KUZU_NODE_SCHEMA)
+    await kuzu_driver.execute_query(KUZU_EDGE_SCHEMA)

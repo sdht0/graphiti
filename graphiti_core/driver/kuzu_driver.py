@@ -18,16 +18,52 @@ import logging
 from typing import Any
 
 import kuzu
-from typing_extensions import LiteralString
 
 from graphiti_core.driver.driver import GraphDriver, GraphDriverSession
 from graphiti_core.helpers import DEFAULT_DATABASE
 
 logger = logging.getLogger(__name__)
 
+class KuzuDriver(GraphDriver):
+    provider: str = 'kuzu'
+
+    def __init__(
+        self,
+        db: str = ':memory:',
+        max_concurrent_queries: int = 4,
+    ):
+        super().__init__()
+        self.db = kuzu.Database(db)
+        self.client = kuzu.AsyncConnection(self.db, max_concurrent_queries=max_concurrent_queries)
+
+
+    async def execute_query(self, cypher_query_: str, **kwargs: Any) -> tuple[list[kuzu.QueryResult] | kuzu.QueryResult, None, None]:
+        params = dict(kwargs)
+        params.pop('database_', None)
+        params.pop('routing_', None)
+        print("kuzu: query = ",cypher_query_)
+        print("kuzu: params = ",{k: (v[:5] if isinstance(v, list) else v) for k,v in params.items()})
+        results = await self.client.execute(cypher_query_, parameters=params)
+        if isinstance(results, list):
+            return [result.rows_as_dict() for result in results], None, None
+        else:
+            return results.rows_as_dict(), None, None
+
+    def session(self, _database: str) -> GraphDriverSession:
+        return KuzuDriverSession(self)
+
+    async def close(self):
+        self.client.close()
+
+    def delete_all_indexes(
+        self, database_: str = DEFAULT_DATABASE
+    ):
+        pass
+
+
 class KuzuDriverSession(GraphDriverSession):
-    def __init__(self, connection: kuzu.AsyncConnection):
-        self.connection = connection
+    def __init__(self, driver: KuzuDriver):
+        self.driver = driver
 
     async def __aenter__(self):
         return self
@@ -47,38 +83,7 @@ class KuzuDriverSession(GraphDriverSession):
     async def run(self, query: str | list, **kwargs: Any) -> Any:
         if isinstance(query, list):
             for cypher, params in query:
-                await self.connection.execute(str(cypher), params)
+                await self.driver.execute_query(cypher, **params)
         else:
-            params = dict(kwargs)
-            await self.connection.execute(str(query), params)
+            await self.driver.execute_query(query, **kwargs)
         return None
-
-
-class KuzuDriver(GraphDriver):
-    provider: str = 'kuzu'
-
-    def __init__(
-        self,
-        db: str = ':memory:',
-        max_concurrent_queries: int = 4,
-    ):
-        super().__init__()
-        self.db = kuzu.Database(db)
-        self.client = kuzu.AsyncConnection(self.db, max_concurrent_queries=max_concurrent_queries)
-
-    async def execute_query(self, cypher_query_: LiteralString, **kwargs: Any) -> kuzu.QueryResult | list[kuzu.QueryResult]:
-        params = kwargs.pop('params', None)
-        result = await self.client.execute(cypher_query_, parameters=params)
-
-        return result
-
-    def session(self, _database: str) -> GraphDriverSession:
-        return KuzuDriverSession(self.client)
-
-    async def close(self):
-        self.client.close()
-
-    def delete_all_indexes(
-        self, database_: str = DEFAULT_DATABASE
-    ):
-        pass

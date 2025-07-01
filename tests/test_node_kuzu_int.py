@@ -21,6 +21,7 @@ from uuid import uuid4
 import pytest
 
 from graphiti_core.driver.kuzu_driver import KuzuDriver
+from graphiti_core.graph_queries import create_kuzu_schema
 from graphiti_core.nodes import (
     CommunityNode,
     EntityNode,
@@ -34,7 +35,7 @@ def sample_entity_node():
         uuid=str(uuid4()),
         name='Test Entity',
         group_id='test_group',
-        labels=['Entity'],
+        labels=[],
         name_embedding=[0.5] * 1024,
         summary='Entity Summary',
     )
@@ -67,7 +68,10 @@ def sample_community_node():
 @pytest.mark.asyncio
 async def test_entity_node_save_get_and_delete(sample_entity_node):
     kuzu_driver = KuzuDriver()
+    await create_kuzu_schema(kuzu_driver)
+
     await sample_entity_node.save(kuzu_driver)
+
     retrieved = await EntityNode.get_by_uuid(kuzu_driver, sample_entity_node.uuid)
     assert retrieved.uuid == sample_entity_node.uuid
     assert retrieved.name == 'Test Entity'

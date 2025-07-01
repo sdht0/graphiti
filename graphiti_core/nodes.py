@@ -31,24 +31,13 @@ from graphiti_core.errors import NodeNotFoundError
 from graphiti_core.helpers import DEFAULT_DATABASE, parse_db_date
 from graphiti_core.models.nodes.node_db_queries import (
     COMMUNITY_NODE_SAVE,
+    ENTITY_NODE_RETURN,
     ENTITY_NODE_SAVE,
     EPISODIC_NODE_SAVE,
 )
 from graphiti_core.utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
-
-ENTITY_NODE_RETURN: LiteralString = """
-        RETURN
-            n.uuid As uuid, 
-            n.name AS name,
-            n.group_id AS group_id,
-            n.created_at AS created_at, 
-            n.summary AS summary,
-            labels(n) AS labels,
-            properties(n) AS attributes
-            """
-
 
 class EpisodeType(Enum):
     """
@@ -97,14 +86,23 @@ class Node(BaseModel, ABC):
     async def save(self, driver: GraphDriver): ...
 
     async def delete(self, driver: GraphDriver):
-        result = await driver.execute_query(
-            """
-        MATCH (n:Entity|Episodic|Community {uuid: $uuid})
-        DETACH DELETE n
-        """,
-            uuid=self.uuid,
-            database_=DEFAULT_DATABASE,
-        )
+        if driver.provider == 'kuzu':
+            result = await driver.execute_query(
+                """
+                MATCH (n {uuid: $uuid})
+                DETACH DELETE n;
+                """,
+                uuid=self.uuid,
+            )
+        else:
+            result = await driver.execute_query(
+                """
+                MATCH (n:Entity|Episodic|Community {uuid: $uuid})
+                DETACH DELETE n
+                """,
+                uuid=self.uuid,
+                database_=DEFAULT_DATABASE,
+            )
 
         logger.debug(f'Deleted Node: {self.uuid}')
 
@@ -120,14 +118,23 @@ class Node(BaseModel, ABC):
 
     @classmethod
     async def delete_by_group_id(cls, driver: GraphDriver, group_id: str):
-        await driver.execute_query(
-            """
-        MATCH (n:Entity|Episodic|Community {group_id: $group_id})
-        DETACH DELETE n
-        """,
-            group_id=group_id,
-            database_=DEFAULT_DATABASE,
-        )
+        if driver.provider == 'kuzu':
+            await driver.execute_query(
+                """
+                MATCH (n {group_id: $group_id})
+                DETACH DELETE n;
+                """,
+                group_id=group_id,
+            )
+        else:
+            await driver.execute_query(
+                """
+                MATCH (n:Entity|Episodic|Community {group_id: $group_id})
+                DETACH DELETE n
+                """,
+                group_id=group_id,
+                database_=DEFAULT_DATABASE,
+            )
 
         return 'SUCCESS'
 
@@ -330,12 +337,20 @@ class EntityNode(Node):
 
         entity_data.update(self.attributes or {})
 
-        result = await driver.execute_query(
-            ENTITY_NODE_SAVE,
-            labels=self.labels + ['Entity'],
-            entity_data=entity_data,
-            database_=DEFAULT_DATABASE,
-        )
+        query = ENTITY_NODE_SAVE(driver.provider)
+        if driver.provider == 'kuzu':
+            entity_data['labels'] = self.labels
+            result = await driver.execute_query(
+                query,
+                **entity_data,
+            )
+        else:
+            result = await driver.execute_query(
+                query,
+                labels=self.labels + ['Entity'],
+                entity_data=entity_data,
+                database_=DEFAULT_DATABASE,
+            )
 
         logger.debug(f'Saved Node to Graph: {self.uuid}')
 
@@ -345,9 +360,9 @@ class EntityNode(Node):
     async def get_by_uuid(cls, driver: GraphDriver, uuid: str):
         query = (
             """
-                                                                    MATCH (n:Entity {uuid: $uuid})
-                                                                    """
-            + ENTITY_NODE_RETURN
+            MATCH (n:Entity {uuid: $uuid})
+            """
+            + ENTITY_NODE_RETURN(driver.provider)
         )
         records, _, _ = await driver.execute_query(
             query,
@@ -356,7 +371,7 @@ class EntityNode(Node):
             routing_='r',
         )
 
-        nodes = [get_entity_node_from_record(record) for record in records]
+        nodes = [get_entity_node_from_record(record, driver.provider) for record in records]
 
         if len(nodes) == 0:
             raise NodeNotFoundError(uuid)
@@ -367,15 +382,15 @@ class EntityNode(Node):
     async def get_by_uuids(cls, driver: GraphDriver, uuids: list[str]):
         records, _, _ = await driver.execute_query(
             """
-        MATCH (n:Entity) WHERE n.uuid IN $uuids
-        """
-            + ENTITY_NODE_RETURN,
+            MATCH (n:Entity) WHERE n.uuid IN $uuids
+            """
+            + ENTITY_NODE_RETURN(driver.provider),
             uuids=uuids,
             database_=DEFAULT_DATABASE,
             routing_='r',
         )
 
-        nodes = [get_entity_node_from_record(record) for record in records]
+        nodes = [get_entity_node_from_record(record, driver.provider) for record in records]
 
         return nodes
 
@@ -395,7 +410,7 @@ class EntityNode(Node):
         MATCH (n:Entity) WHERE n.group_id IN $group_ids
         """
             + cursor_query
-            + ENTITY_NODE_RETURN
+            + ENTITY_NODE_RETURN(driver.provider)
             + """
         ORDER BY n.uuid DESC
         """
@@ -407,7 +422,7 @@ class EntityNode(Node):
             routing_='r',
         )
 
-        nodes = [get_entity_node_from_record(record) for record in records]
+        nodes = [get_entity_node_from_record(record, driver.provider) for record in records]
 
         return nodes
 
@@ -543,12 +558,12 @@ class CommunityNode(Node):
 def get_episodic_node_from_record(record: Any) -> EpisodicNode:
     created_at = parse_db_date(record['created_at'])
     valid_at = parse_db_date(record['valid_at'])
-    
+
     if created_at is None:
         raise ValueError(f"created_at cannot be None for episode {record.get('uuid', 'unknown')}")
     if valid_at is None:
         raise ValueError(f"valid_at cannot be None for episode {record.get('uuid', 'unknown')}")
-    
+
     return EpisodicNode(
         content=record['content'],
         created_at=created_at,
@@ -562,23 +577,27 @@ def get_episodic_node_from_record(record: Any) -> EpisodicNode:
     )
 
 
-def get_entity_node_from_record(record: Any) -> EntityNode:
+def get_entity_node_from_record(record: Any, provider: str) -> EntityNode:
+    attributes = record['attributes']
+    labels = record['labels']
+
+    created_at = attributes.pop('created_at')
+    if provider == 'neo4j':
+        created_at = parse_db_date(created_at)
+
     entity_node = EntityNode(
-        uuid=record['uuid'],
-        name=record['name'],
-        group_id=record['group_id'],
-        labels=record['labels'],
-        created_at=parse_db_date(record['created_at']),  # type: ignore
-        summary=record['summary'],
-        attributes=record['attributes'],
+        uuid=attributes.pop('uuid'),
+        name=attributes.pop('name'),
+        group_id=attributes.pop('group_id'),
+        labels=labels,
+        created_at=created_at, # type: ignore
+        summary=attributes.pop('summary'),
     )
 
-    entity_node.attributes.pop('uuid', None)
-    entity_node.attributes.pop('name', None)
-    entity_node.attributes.pop('group_id', None)
-    entity_node.attributes.pop('name_embedding', None)
-    entity_node.attributes.pop('summary', None)
-    entity_node.attributes.pop('created_at', None)
+    for key in ['labels', 'name_embedding', '_id', '_label']:
+        attributes.pop(key, None)
+
+    entity_node.attributes = attributes
 
     return entity_node
 
