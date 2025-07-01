@@ -48,7 +48,7 @@ class KuzuDriver(GraphDriver):
     async def execute_query(
         self, cypher_query_: str, **kwargs: Any
     ) -> tuple[list[dict[str, Any]] | list[list[dict[str, Any]]], None, None]:
-        params = dict(kwargs)
+        params = {k: v for k, v in kwargs.items() if v is not None}
         params.pop('database_', None)
         params.pop('routing_', None)
 
