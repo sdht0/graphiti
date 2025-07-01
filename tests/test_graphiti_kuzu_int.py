@@ -34,6 +34,7 @@ pytest_plugins = ('pytest_asyncio',)
 
 load_dotenv()
 
+
 def setup_logging():
     # Create a logger
     logger = logging.getLogger()

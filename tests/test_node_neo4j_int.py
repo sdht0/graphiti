@@ -14,8 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import unittest
 import os
+import unittest
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -78,7 +78,7 @@ def sample_community_node():
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-@unittest.skipIf(not HAS_NEO4J, "Neo4j is not installed")
+@unittest.skipIf(not HAS_NEO4J, 'Neo4j is not installed')
 async def test_entity_node_save_get_and_delete(sample_entity_node):
     neo4j_driver = Neo4jDriver(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD)
 
@@ -95,7 +95,7 @@ async def test_entity_node_save_get_and_delete(sample_entity_node):
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-@unittest.skipIf(not HAS_NEO4J, "Neo4j is not installed")
+@unittest.skipIf(not HAS_NEO4J, 'Neo4j is not installed')
 async def test_community_node_save_get_and_delete(sample_community_node):
     neo4j_driver = Neo4jDriver(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD)
 
@@ -113,7 +113,7 @@ async def test_community_node_save_get_and_delete(sample_community_node):
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-@unittest.skipIf(not HAS_NEO4J, "Neo4j is not installed")
+@unittest.skipIf(not HAS_NEO4J, 'Neo4j is not installed')
 async def test_episodic_node_save_get_and_delete(sample_episodic_node):
     neo4j_driver = Neo4jDriver(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD)
 

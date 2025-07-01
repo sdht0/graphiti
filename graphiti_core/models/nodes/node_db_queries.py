@@ -64,7 +64,8 @@ EPISODIC_NODE_SAVE_BULK = """
     RETURN n.uuid AS uuid
 """
 
-ENTITY_NODE_SAVE = lambda provider: """
+ENTITY_NODE_SAVE = (
+    lambda provider: """
     MERGE (n:Entity {uuid: $uuid})
     SET
         n.labels = $labels,
@@ -75,13 +76,16 @@ ENTITY_NODE_SAVE = lambda provider: """
         n.created_at = $created_at
     WITH n
     RETURN n.uuid AS uuid
-""" if provider == 'kuzu' else """
+"""
+    if provider == 'kuzu'
+    else """
     MERGE (n:Entity {uuid: $entity_data.uuid})
     SET n:$($labels)
     SET n = $entity_data
     WITH n CALL db.create.setNodeVectorProperty(n, "name_embedding", $entity_data.name_embedding)
     RETURN n.uuid AS uuid
 """
+)
 
 ENTITY_NODE_SAVE_BULK = """
     UNWIND $nodes AS node
@@ -92,15 +96,19 @@ ENTITY_NODE_SAVE_BULK = """
     RETURN n.uuid AS uuid
 """
 
-ENTITY_NODE_RETURN = lambda provider: """
+ENTITY_NODE_RETURN = (
+    lambda provider: """
     RETURN
         n as attributes,
         n.labels as labels
-""" if provider == 'kuzu' else """
+"""
+    if provider == 'kuzu'
+    else """
     RETURN
         properties(n) AS attributes,
         labels(n) AS labels
 """
+)
 
 COMMUNITY_NODE_SAVE = """
     MERGE (n:Community {uuid: $uuid})

@@ -39,6 +39,7 @@ from graphiti_core.utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
 
+
 class EpisodeType(Enum):
     """
     Enumeration of different types of episodes that can be processed.
@@ -358,12 +359,9 @@ class EntityNode(Node):
 
     @classmethod
     async def get_by_uuid(cls, driver: GraphDriver, uuid: str):
-        query = (
-            """
+        query = """
             MATCH (n:Entity {uuid: $uuid})
-            """
-            + ENTITY_NODE_RETURN(driver.provider)
-        )
+            """ + ENTITY_NODE_RETURN(driver.provider)
         records, _, _ = await driver.execute_query(
             query,
             uuid=uuid,
@@ -560,9 +558,9 @@ def get_episodic_node_from_record(record: Any) -> EpisodicNode:
     valid_at = parse_db_date(record['valid_at'])
 
     if created_at is None:
-        raise ValueError(f"created_at cannot be None for episode {record.get('uuid', 'unknown')}")
+        raise ValueError(f'created_at cannot be None for episode {record.get("uuid", "unknown")}')
     if valid_at is None:
-        raise ValueError(f"valid_at cannot be None for episode {record.get('uuid', 'unknown')}")
+        raise ValueError(f'valid_at cannot be None for episode {record.get("uuid", "unknown")}')
 
     return EpisodicNode(
         content=record['content'],
@@ -590,7 +588,7 @@ def get_entity_node_from_record(record: Any, provider: str) -> EntityNode:
         name=attributes.pop('name'),
         group_id=attributes.pop('group_id'),
         labels=labels,
-        created_at=created_at, # type: ignore
+        created_at=created_at,  # type: ignore
         summary=attributes.pop('summary'),
     )
 

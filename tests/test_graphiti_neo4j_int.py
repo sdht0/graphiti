@@ -14,10 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import unittest
 import logging
 import os
 import sys
+import unittest
 from datetime import datetime, timezone
 
 import pytest
@@ -69,7 +69,7 @@ def setup_logging():
 
 
 @pytest.mark.asyncio
-@unittest.skipIf(not HAS_NEO4J, "Neo4j is not installed")
+@unittest.skipIf(not HAS_NEO4J, 'Neo4j is not installed')
 async def test_graphiti_init():
     logger = setup_logging()
     graphiti = Graphiti(graph_driver=Neo4jDriver(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD))
@@ -84,7 +84,7 @@ async def test_graphiti_init():
 
 
 @pytest.mark.asyncio
-@unittest.skipIf(not HAS_NEO4J, "Neo4j is not installed")
+@unittest.skipIf(not HAS_NEO4J, 'Neo4j is not installed')
 async def test_graph_integration():
     client = Graphiti(graph_driver=Neo4jDriver(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD))
     embedder = client.embedder

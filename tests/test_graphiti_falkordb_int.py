@@ -70,7 +70,7 @@ def setup_logging():
 
 
 @pytest.mark.asyncio
-@unittest.skipIf(not HAS_FALKORDB, "FalkorDB is not installed")
+@unittest.skipIf(not HAS_FALKORDB, 'FalkorDB is not installed')
 async def test_graphiti_falkordb_init():
     logger = setup_logging()
 
@@ -78,7 +78,7 @@ async def test_graphiti_falkordb_init():
         host=FALKORDB_HOST,
         port=int(FALKORDB_PORT),
         username=FALKORDB_USER,
-        password=FALKORDB_PASSWORD
+        password=FALKORDB_PASSWORD,
     )
 
     graphiti = Graphiti(graph_driver=falkor_driver)
@@ -93,13 +93,13 @@ async def test_graphiti_falkordb_init():
 
 
 @pytest.mark.asyncio
-@unittest.skipIf(not HAS_FALKORDB, "FalkorDB is not installed")
+@unittest.skipIf(not HAS_FALKORDB, 'FalkorDB is not installed')
 async def test_graph_falkordb_integration():
     falkor_driver = FalkorDriver(
         host=FALKORDB_HOST,
         port=int(FALKORDB_PORT),
         username=FALKORDB_USER,
-        password=FALKORDB_PASSWORD
+        password=FALKORDB_PASSWORD,
     )
 
     client = Graphiti(graph_driver=falkor_driver)
@@ -127,14 +127,22 @@ async def test_graph_falkordb_integration():
         group_id='test_group',
     )
 
-    bob_node = EntityNode(name='Bob', labels=[], created_at=now, summary='Bob summary', group_id='test_group')
+    bob_node = EntityNode(
+        name='Bob', labels=[], created_at=now, summary='Bob summary', group_id='test_group'
+    )
 
     episodic_edge_1 = EpisodicEdge(
-        source_node_uuid=episode.uuid, target_node_uuid=alice_node.uuid, created_at=now, group_id='test_group'
+        source_node_uuid=episode.uuid,
+        target_node_uuid=alice_node.uuid,
+        created_at=now,
+        group_id='test_group',
     )
 
     episodic_edge_2 = EpisodicEdge(
-        source_node_uuid=episode.uuid, target_node_uuid=bob_node.uuid, created_at=now, group_id='test_group'
+        source_node_uuid=episode.uuid,
+        target_node_uuid=bob_node.uuid,
+        created_at=now,
+        group_id='test_group',
     )
 
     entity_edge = EntityEdge(

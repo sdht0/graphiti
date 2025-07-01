@@ -29,6 +29,7 @@ from graphiti_core.nodes import (
     EpisodicNode,
 )
 
+
 @pytest.fixture
 def sample_entity_node():
     return EntityNode(

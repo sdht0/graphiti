@@ -79,13 +79,13 @@ def sample_community_node():
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-@unittest.skipIf(not HAS_FALKORDB, "FalkorDB is not installed")
+@unittest.skipIf(not HAS_FALKORDB, 'FalkorDB is not installed')
 async def test_entity_node_save_get_and_delete(sample_entity_node):
     falkor_driver = FalkorDriver(
         host=FALKORDB_HOST,
         port=int(FALKORDB_PORT),
         username=FALKORDB_USER,
-        password=FALKORDB_PASSWORD
+        password=FALKORDB_PASSWORD,
     )
 
     await sample_entity_node.save(falkor_driver)
@@ -101,13 +101,13 @@ async def test_entity_node_save_get_and_delete(sample_entity_node):
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-@unittest.skipIf(not HAS_FALKORDB, "FalkorDB is not installed")
+@unittest.skipIf(not HAS_FALKORDB, 'FalkorDB is not installed')
 async def test_community_node_save_get_and_delete(sample_community_node):
     falkor_driver = FalkorDriver(
         host=FALKORDB_HOST,
         port=int(FALKORDB_PORT),
         username=FALKORDB_USER,
-        password=FALKORDB_PASSWORD
+        password=FALKORDB_PASSWORD,
     )
 
     await sample_community_node.save(falkor_driver)
@@ -124,13 +124,13 @@ async def test_community_node_save_get_and_delete(sample_community_node):
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-@unittest.skipIf(not HAS_FALKORDB, "FalkorDB is not installed")
+@unittest.skipIf(not HAS_FALKORDB, 'FalkorDB is not installed')
 async def test_episodic_node_save_get_and_delete(sample_episodic_node):
     falkor_driver = FalkorDriver(
         host=FALKORDB_HOST,
         port=int(FALKORDB_PORT),
         username=FALKORDB_USER,
-        password=FALKORDB_PASSWORD
+        password=FALKORDB_PASSWORD,
     )
 
     await sample_episodic_node.save(falkor_driver)

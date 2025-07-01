@@ -18,9 +18,9 @@ import asyncio
 import json
 import logging
 import os
+import sys
 from datetime import datetime, timezone
 from logging import INFO
-import sys
 
 from dotenv import load_dotenv
 
@@ -75,7 +75,7 @@ elif db_type == 'falkordb':
     # Make sure FalkorDB (on-premises) is running — see https://docs.falkordb.com/
     # By default, FalkorDB does not require a username or password,
     # but you can set them via environment variables for added security.
-    # 
+    #
     # If you're using FalkorDB Cloud, set the environment variables accordingly.
     # For on-premises use, you can leave them as None or set them to your preferred values.
     #
@@ -88,7 +88,9 @@ elif db_type == 'falkordb':
     falkor_port = os.environ.get('FALKORDB_PORT', '6379')
 
     # Initialize Graphiti with FalkorDB connection
-    falkor_driver = FalkorDriver(host=falkor_host, port=int(falkor_port), username=falkor_username, password=falkor_password)
+    falkor_driver = FalkorDriver(
+        host=falkor_host, port=int(falkor_port), username=falkor_username, password=falkor_password
+    )
     graphiti = Graphiti(graph_driver=falkor_driver)
 
 else:
@@ -98,6 +100,7 @@ falkor_username = os.environ.get('FALKORDB_USERNAME', None)
 falkor_password = os.environ.get('FALKORDB_PASSWORD', None)
 falkor_host = os.environ.get('FALKORDB_HOST', 'localhost')
 falkor_port = os.environ.get('FALKORDB_PORT', '6379')
+
 
 async def main():
     #################################################
