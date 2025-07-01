@@ -237,6 +237,8 @@ class Graphiti:
         elif 'groq' in class_name:
             return 'groq'
         # Database providers
+        elif 'kuzu' in class_name:
+            return 'kuzu'
         elif 'neo4j' in class_name:
             return 'neo4j'
         elif 'falkor' in class_name:
