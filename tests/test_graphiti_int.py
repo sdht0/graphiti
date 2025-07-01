@@ -28,7 +28,9 @@ from graphiti_core.edges import EntityEdge, EpisodicEdge
 from graphiti_core.graphiti import Graphiti
 from graphiti_core.helpers import semaphore_gather
 from graphiti_core.nodes import EntityNode, EpisodeType, EpisodicNode
+from graphiti_core.search.search_filters import ComparisonOperator, DateFilter, SearchFilters
 from graphiti_core.search.search_helpers import search_results_to_context_string
+from graphiti_core.utils.datetime_utils import utc_now
 
 pytestmark = pytest.mark.integration
 
@@ -116,10 +118,12 @@ def setup_logging():
 )
 async def test_graphiti_init(driver):
     logger = setup_logging()
-    graph_driver = get_driver(driver)
-    graphiti = Graphiti(graph_driver=graph_driver)
+    graphiti = Graphiti(graph_driver=get_driver(driver))
+    search_filter = SearchFilters(
+        created_at=[[DateFilter(date=utc_now(), comparison_operator=ComparisonOperator.less_than)]]
+    )
 
-    results = await graphiti.search_(query='Who is the user?')
+    results = await graphiti.search_(query='Who is Tania?', search_filter=search_filter)
 
     pretty_results = search_results_to_context_string(results)
 
