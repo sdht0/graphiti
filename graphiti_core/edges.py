@@ -128,14 +128,14 @@ class EpisodicEdge(Edge):
     async def get_by_uuid(cls, driver: GraphDriver, uuid: str):
         records, _, _ = await driver.execute_query(
             """
-        MATCH (n:Episodic)-[e:MENTIONS {uuid: $uuid}]->(m:Entity)
-        RETURN
-            e.uuid As uuid,
-            e.group_id AS group_id,
-            n.uuid AS source_node_uuid, 
-            m.uuid AS target_node_uuid, 
-            e.created_at AS created_at
-        """,
+            MATCH (n:Episodic)-[e:MENTIONS {uuid: $uuid}]->(m:Entity)
+            RETURN
+                e.uuid As uuid,
+                e.group_id AS group_id,
+                n.uuid AS source_node_uuid, 
+                m.uuid AS target_node_uuid,
+                e.created_at AS created_at
+            """,
             uuid=uuid,
             database_=DEFAULT_DATABASE,
             routing_='r',
@@ -151,15 +151,15 @@ class EpisodicEdge(Edge):
     async def get_by_uuids(cls, driver: GraphDriver, uuids: list[str]):
         records, _, _ = await driver.execute_query(
             """
-        MATCH (n:Episodic)-[e:MENTIONS]->(m:Entity)
-        WHERE e.uuid IN $uuids
-        RETURN
-            e.uuid As uuid,
-            e.group_id AS group_id,
-            n.uuid AS source_node_uuid, 
-            m.uuid AS target_node_uuid, 
-            e.created_at AS created_at
-        """,
+            MATCH (n:Episodic)-[e:MENTIONS]->(m:Entity)
+            WHERE e.uuid IN $uuids
+            RETURN
+                e.uuid As uuid,
+                e.group_id AS group_id,
+                n.uuid AS source_node_uuid, 
+                m.uuid AS target_node_uuid, 
+                e.created_at AS created_at
+            """,
             uuids=uuids,
             database_=DEFAULT_DATABASE,
             routing_='r',
@@ -184,19 +184,19 @@ class EpisodicEdge(Edge):
 
         records, _, _ = await driver.execute_query(
             """
-        MATCH (n:Episodic)-[e:MENTIONS]->(m:Entity)
-        WHERE e.group_id IN $group_ids
-        """
+            MATCH (n:Episodic)-[e:MENTIONS]->(m:Entity)
+            WHERE e.group_id IN $group_ids
+            """
             + cursor_query
             + """
-        RETURN
-            e.uuid As uuid,
-            e.group_id AS group_id,
-            n.uuid AS source_node_uuid, 
-            m.uuid AS target_node_uuid, 
-            e.created_at AS created_at
-        ORDER BY e.uuid DESC 
-        """
+            RETURN
+                e.uuid As uuid,
+                e.group_id AS group_id,
+                n.uuid AS source_node_uuid, 
+                m.uuid AS target_node_uuid, 
+                e.created_at AS created_at
+            ORDER BY e.uuid DESC 
+            """
             + limit_query,
             group_ids=group_ids,
             uuid=uuid_cursor,
@@ -292,7 +292,7 @@ class EntityEdge(Edge):
             """
             MATCH (n:Entity)-[e:RELATES_TO {uuid: $uuid}]->(m:Entity)
             """
-            + ENTITY_EDGE_RETURN,
+            + ENTITY_EDGE_RETURN(driver.provider),
             uuid=uuid,
             database_=DEFAULT_DATABASE,
             routing_='r',
@@ -314,7 +314,7 @@ class EntityEdge(Edge):
             MATCH (n:Entity)-[e:RELATES_TO]->(m:Entity)
             WHERE e.uuid IN $uuids
             """
-            + ENTITY_EDGE_RETURN,
+            + ENTITY_EDGE_RETURN(driver.provider),
             uuids=uuids,
             database_=DEFAULT_DATABASE,
             routing_='r',
@@ -341,7 +341,7 @@ class EntityEdge(Edge):
             WHERE e.group_id IN $group_ids
             """
             + cursor_query
-            + ENTITY_EDGE_RETURN
+            + ENTITY_EDGE_RETURN(driver.provider)
             + """
             ORDER BY e.uuid DESC 
             """
@@ -361,14 +361,14 @@ class EntityEdge(Edge):
 
     @classmethod
     async def get_by_node_uuid(cls, driver: GraphDriver, node_uuid: str):
-        query: LiteralString = (
+        records, _, _ = await driver.execute_query(
             """
             MATCH (n:Entity {uuid: $node_uuid})-[e:RELATES_TO]-(m:Entity)
             """
-            + ENTITY_EDGE_RETURN
-        )
-        records, _, _ = await driver.execute_query(
-            query, node_uuid=node_uuid, database_=DEFAULT_DATABASE, routing_='r'
+            + ENTITY_EDGE_RETURN(driver.provider),
+            node_uuid=node_uuid,
+            database_=DEFAULT_DATABASE,
+            routing_='r',
         )
 
         edges = [get_entity_edge_from_record(record) for record in records]
