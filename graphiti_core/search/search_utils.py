@@ -104,15 +104,7 @@ async def get_mentioned_nodes(
 
     query = """
         MATCH (episode:Episodic)-[:MENTIONS]->(n:Entity) WHERE episode.uuid IN $uuids
-        RETURN DISTINCT
-            n.uuid As uuid, 
-            n.group_id AS group_id,
-            n.name AS name,
-            n.created_at AS created_at, 
-            n.summary AS summary,
-            labels(n) AS labels,
-            properties(n) AS attributes
-        """
+        """ + ENTITY_NODE_RETURN(driver.provider).replace('RETURN', 'RETURN DISTINCT')
 
     records, _, _ = await driver.execute_query(
         query,
@@ -232,7 +224,7 @@ async def edge_similarity_search(
             group_filter_query += '\nAND (m.uuid IN [$source_uuid, $target_uuid])'
 
     query = (
-        RUNTIME_QUERY
+        RUNTIME_QUERY(driver.provider)
         + """
         MATCH (n:Entity)-[r:RELATES_TO]->(m:Entity)
         """
@@ -260,7 +252,7 @@ async def edge_similarity_search(
         LIMIT $limit
         """
     )
-    records, header, _ = await driver.execute_query(
+    records, _, _ = await driver.execute_query(
         query,
         params=query_params,
         search_vector=search_vector,
@@ -360,7 +352,7 @@ async def node_fulltext_search(
         ORDER BY score DESC
         """
     )
-    records, header, _ = await driver.execute_query(
+    records, _, _ = await driver.execute_query(
         query,
         params=filter_params,
         query=fuzzy_query,
@@ -395,7 +387,7 @@ async def node_similarity_search(
     query_params.update(filter_params)
 
     query = (
-        RUNTIME_QUERY
+        RUNTIME_QUERY(driver.provider)
         + """
         MATCH (n:Entity)
         """
@@ -413,7 +405,7 @@ async def node_similarity_search(
             """
     )
 
-    records, header, _ = await driver.execute_query(
+    records, _, _ = await driver.execute_query(
         query,
         params=query_params,
         search_vector=search_vector,
@@ -566,7 +558,7 @@ async def community_similarity_search(
         query_params['group_ids'] = group_ids
 
     query = (
-        RUNTIME_QUERY
+        RUNTIME_QUERY(driver.provider)
         + """
         MATCH (c:Community)
         """
@@ -692,7 +684,7 @@ async def get_relevant_nodes(
     query_params.update(filter_params)
 
     query = (
-        RUNTIME_QUERY
+        RUNTIME_QUERY(driver.provider)
         + """
         UNWIND $nodes AS node
         MATCH (n:Entity {group_id: $group_id})
@@ -784,7 +776,7 @@ async def get_relevant_edges(
     query_params.update(filter_params)
 
     query = (
-        RUNTIME_QUERY
+        RUNTIME_QUERY(driver.provider)
         + """
         UNWIND $edges AS edge
         MATCH (n:Entity {uuid: edge.source_node_uuid})-[e:RELATES_TO {group_id: edge.group_id}]-(m:Entity {uuid: edge.target_node_uuid})
@@ -854,7 +846,7 @@ async def get_edge_invalidation_candidates(
     query_params.update(filter_params)
 
     query = (
-        RUNTIME_QUERY
+        RUNTIME_QUERY(driver.provider)
         + """
         UNWIND $edges AS edge
         MATCH (n:Entity)-[e:RELATES_TO {group_id: edge.group_id}]->(m:Entity)
