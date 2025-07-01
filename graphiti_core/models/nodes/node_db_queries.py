@@ -37,12 +37,11 @@ CREATE NODE TABLE IF NOT EXISTS Entity (
 );
 CREATE NODE TABLE IF NOT EXISTS Community (
     uuid STRING PRIMARY KEY,
-    labels STRING[],
     name STRING,
+    name_embedding FLOAT[],
     group_id STRING,
     summary STRING,
-    created_at TIMESTAMP,
-    name_embedding FLOAT[]
+    created_at TIMESTAMP
 );
 """
 
@@ -79,6 +78,7 @@ def ENTITY_NODE_SAVE(provider: str) -> str:
         WITH n
         RETURN n.uuid AS uuid
         """
+
     return """
     MERGE (n:Entity {uuid: $entity_data.uuid})
     SET n:$($labels)
@@ -113,7 +113,21 @@ def ENTITY_NODE_RETURN(provider: str) -> str:
     """
 
 
-COMMUNITY_NODE_SAVE = """
+def COMMUNITY_NODE_SAVE(provider: str) -> str:
+    if provider == 'kuzu':
+        return """
+        MERGE (n:Community {uuid: $uuid})
+        SET
+            n.name = $name,
+            n.name_embedding = $name_embedding,
+            n.group_id = $group_id,
+            n.summary = $summary,
+            n.created_at = $created_at
+        WITH n
+        RETURN n.uuid AS uuid
+        """
+
+    return """
     MERGE (n:Community {uuid: $uuid})
     SET n = {uuid: $uuid, name: $name, group_id: $group_id, summary: $summary, created_at: $created_at}
     WITH n CALL db.create.setNodeVectorProperty(n, "name_embedding", $name_embedding)

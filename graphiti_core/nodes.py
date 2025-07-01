@@ -417,7 +417,7 @@ class CommunityNode(Node):
 
     async def save(self, driver: GraphDriver):
         result = await driver.execute_query(
-            COMMUNITY_NODE_SAVE,
+            COMMUNITY_NODE_SAVE(driver.provider),
             uuid=self.uuid,
             name=self.name,
             group_id=self.group_id,
@@ -472,7 +472,7 @@ class CommunityNode(Node):
             routing_='r',
         )
 
-        nodes = [get_community_node_from_record(record) for record in records]
+        nodes = [get_community_node_from_record(record, driver.provider) for record in records]
 
         if len(nodes) == 0:
             raise NodeNotFoundError(uuid)
@@ -496,7 +496,7 @@ class CommunityNode(Node):
             routing_='r',
         )
 
-        communities = [get_community_node_from_record(record) for record in records]
+        communities = [get_community_node_from_record(record, driver.provider) for record in records]
 
         return communities
 
@@ -533,7 +533,7 @@ class CommunityNode(Node):
             routing_='r',
         )
 
-        communities = [get_community_node_from_record(record) for record in records]
+        communities = [get_community_node_from_record(record, driver.provider) for record in records]
 
         return communities
 
@@ -586,13 +586,17 @@ def get_entity_node_from_record(record: Any, provider: str) -> EntityNode:
     return entity_node
 
 
-def get_community_node_from_record(record: Any) -> CommunityNode:
+def get_community_node_from_record(record: Any, provider: str) -> CommunityNode:
+    created_at = record['created_at']
+    if provider == 'neo4j':
+        created_at = parse_db_date(created_at)
+
     return CommunityNode(
         uuid=record['uuid'],
         name=record['name'],
         group_id=record['group_id'],
         name_embedding=record['name_embedding'],
-        created_at=parse_db_date(record['created_at']),  # type: ignore
+        created_at=created_at,  # type: ignore
         summary=record['summary'],
     )
 
