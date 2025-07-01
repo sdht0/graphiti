@@ -45,6 +45,7 @@ CREATE NODE TABLE IF NOT EXISTS Community (
 );
 """
 
+
 def EPISODIC_NODE_SAVE(_provider: str) -> str:
     return """
     MERGE (n:Episodic {uuid: $uuid})
@@ -70,6 +71,7 @@ EPISODIC_NODE_SAVE_BULK = """
         created_at: episode.created_at, valid_at: episode.valid_at}
     RETURN n.uuid AS uuid
 """
+
 
 def EPISODIC_NODE_RETURN(_provider: str) -> str:
     return """

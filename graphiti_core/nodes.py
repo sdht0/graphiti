@@ -216,7 +216,7 @@ class EpisodicNode(Node):
             + cursor_query
             + EPISODIC_NODE_RETURN(driver.provider).replace('RETURN', 'RETURN DISTINCT')
             + """
-            ORDER BY e.uuid DESC
+            ORDER BY uuid DESC
             """
             + limit_query,
             group_ids=group_ids,
