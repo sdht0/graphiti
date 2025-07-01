@@ -37,7 +37,9 @@ from graphiti_core.nodes import Node
 
 logger = logging.getLogger(__name__)
 
-ENTITY_EDGE_RETURN: LiteralString = """
+def ENTITY_EDGE_RETURN(provider: str) -> str:
+    if provider == 'kuzu':
+        return """
         RETURN
             e.uuid AS uuid,
             startNode(e).uuid AS source_node_uuid,
@@ -50,8 +52,24 @@ ENTITY_EDGE_RETURN: LiteralString = """
             e.expired_at AS expired_at,
             e.valid_at AS valid_at,
             e.invalid_at AS invalid_at,
-            properties(e) AS attributes
-            """
+            e AS attributes
+        """
+    
+    return """
+    RETURN
+        e.uuid AS uuid,
+        startNode(e).uuid AS source_node_uuid,
+        endNode(e).uuid AS target_node_uuid,
+        e.created_at AS created_at,
+        e.name AS name,
+        e.group_id AS group_id,
+        e.fact AS fact,
+        e.episodes AS episodes,
+        e.expired_at AS expired_at,
+        e.valid_at AS valid_at,
+        e.invalid_at AS invalid_at,
+        properties(e) AS attributes
+    """
 
 
 class Edge(BaseModel, ABC):
@@ -272,8 +290,8 @@ class EntityEdge(Edge):
     async def get_by_uuid(cls, driver: GraphDriver, uuid: str):
         records, _, _ = await driver.execute_query(
             """
-        MATCH (n:Entity)-[e:RELATES_TO {uuid: $uuid}]->(m:Entity)
-        """
+            MATCH (n:Entity)-[e:RELATES_TO {uuid: $uuid}]->(m:Entity)
+            """
             + ENTITY_EDGE_RETURN,
             uuid=uuid,
             database_=DEFAULT_DATABASE,
@@ -293,9 +311,9 @@ class EntityEdge(Edge):
 
         records, _, _ = await driver.execute_query(
             """
-        MATCH (n:Entity)-[e:RELATES_TO]->(m:Entity)
-        WHERE e.uuid IN $uuids
-        """
+            MATCH (n:Entity)-[e:RELATES_TO]->(m:Entity)
+            WHERE e.uuid IN $uuids
+            """
             + ENTITY_EDGE_RETURN,
             uuids=uuids,
             database_=DEFAULT_DATABASE,
@@ -319,14 +337,14 @@ class EntityEdge(Edge):
 
         records, _, _ = await driver.execute_query(
             """
-        MATCH (n:Entity)-[e:RELATES_TO]->(m:Entity)
-        WHERE e.group_id IN $group_ids
-        """
+            MATCH (n:Entity)-[e:RELATES_TO]->(m:Entity)
+            WHERE e.group_id IN $group_ids
+            """
             + cursor_query
             + ENTITY_EDGE_RETURN
             + """
-        ORDER BY e.uuid DESC 
-        """
+            ORDER BY e.uuid DESC 
+            """
             + limit_query,
             group_ids=group_ids,
             uuid=uuid_cursor,
@@ -345,8 +363,8 @@ class EntityEdge(Edge):
     async def get_by_node_uuid(cls, driver: GraphDriver, node_uuid: str):
         query: LiteralString = (
             """
-                                                        MATCH (n:Entity {uuid: $node_uuid})-[e:RELATES_TO]-(m:Entity)
-                                                        """
+            MATCH (n:Entity {uuid: $node_uuid})-[e:RELATES_TO]-(m:Entity)
+            """
             + ENTITY_EDGE_RETURN
         )
         records, _, _ = await driver.execute_query(

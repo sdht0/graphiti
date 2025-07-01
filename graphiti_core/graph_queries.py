@@ -94,12 +94,15 @@ def get_nodes_query(db_type: str = 'neo4j', name: str = '', query: str | None = 
         return f'CALL db.index.fulltext.queryNodes("{name}", {query}, {{limit: $limit}})'
 
 
-def get_vector_cosine_func_query(vec1, vec2, db_type: str = 'neo4j') -> str:
-    if db_type == 'falkordb':
+def get_vector_cosine_func_query(property: str, param: str, provider: str) -> str:
+    if provider == 'kuzu':
+        return f'vector.cosineDistance({property}, {param})'
+
+    if provider == 'falkordb':
         # FalkorDB uses a different syntax for regular cosine similarity and Neo4j uses normalized cosine similarity
-        return f'(2 - vec.cosineDistance({vec1}, vecf32({vec2})))/2'
-    else:
-        return f'vector.similarity.cosine({vec1}, {vec2})'
+        return f'(2 - vec.cosineDistance({property}, vecf32({param})))/2'
+
+    return f'vector.similarity.cosine({property}, {param})'
 
 
 def get_relationships_query(name: str, db_type: str = 'neo4j') -> str:

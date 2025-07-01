@@ -285,28 +285,28 @@ async def edge_bfs_search(
 
     query = (
         """
-                                    UNWIND $bfs_origin_node_uuids AS origin_uuid
-                                    MATCH path = (origin:Entity|Episodic {uuid: origin_uuid})-[:RELATES_TO|MENTIONS]->{1,3}(n:Entity)
-                                    UNWIND relationships(path) AS rel
-                                    MATCH (n:Entity)-[r:RELATES_TO]-(m:Entity)
-                                    WHERE r.uuid = rel.uuid
-                                    """
+        UNWIND $bfs_origin_node_uuids AS origin_uuid
+        MATCH path = (origin:Entity|Episodic {uuid: origin_uuid})-[:RELATES_TO|MENTIONS]->{1,3}(n:Entity)
+        UNWIND relationships(path) AS rel
+        MATCH (n:Entity)-[r:RELATES_TO]-(m:Entity)
+        WHERE r.uuid = rel.uuid
+        """
         + filter_query
         + """  
-                RETURN DISTINCT
-                    r.uuid AS uuid,
-                    r.group_id AS group_id,
-                    startNode(r).uuid AS source_node_uuid,
-                    endNode(r).uuid AS target_node_uuid,
-                    r.created_at AS created_at,
-                    r.name AS name,
-                    r.fact AS fact,
-                    r.episodes AS episodes,
-                    r.expired_at AS expired_at,
-                    r.valid_at AS valid_at,
-                    r.invalid_at AS invalid_at,
-                    properties(r) AS attributes
-                LIMIT $limit
+        RETURN DISTINCT
+            r.uuid AS uuid,
+            r.group_id AS group_id,
+            startNode(r).uuid AS source_node_uuid,
+            endNode(r).uuid AS target_node_uuid,
+            r.created_at AS created_at,
+            r.name AS name,
+            r.fact AS fact,
+            r.episodes AS episodes,
+            r.expired_at AS expired_at,
+            r.valid_at AS valid_at,
+            r.invalid_at AS invalid_at,
+            properties(r) AS attributes
+        LIMIT $limit
         """
     )
 
