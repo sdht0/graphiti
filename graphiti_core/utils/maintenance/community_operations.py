@@ -247,7 +247,7 @@ async def determine_entity_community(
     )
 
     if len(records) > 0:
-        return get_community_node_from_record(records[0]), False
+        return get_community_node_from_record(records[0], driver.provider), False
 
     # If the node has no community, add it to the mode community of surrounding entities
     records, _, _ = await driver.execute_query(
@@ -265,7 +265,7 @@ async def determine_entity_community(
     )
 
     communities: list[CommunityNode] = [
-        get_community_node_from_record(record) for record in records
+        get_community_node_from_record(record, driver.provider) for record in records
     ]
 
     community_map: dict[str, int] = defaultdict(int)

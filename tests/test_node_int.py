@@ -31,12 +31,14 @@ from graphiti_core.nodes import (
 
 try:
     from graphiti_core.driver.neo4j_driver import Neo4jDriver
+
     HAS_NEO4J = True
 except ImportError:
     HAS_NEO4J = False
 
 try:
     from graphiti_core.driver.falkordb_driver import FalkorDriver
+
     HAS_FALKORDB = True
 except ImportError:
     HAS_FALKORDB = False
@@ -49,6 +51,7 @@ FALKORDB_HOST = os.getenv('FALKORDB_HOST', 'localhost')
 FALKORDB_PORT = os.getenv('FALKORDB_PORT', '6379')
 FALKORDB_USER = os.getenv('FALKORDB_USER', None)
 FALKORDB_PASSWORD = os.getenv('FALKORDB_PASSWORD', None)
+
 
 def get_driver(driver_name: str) -> GraphDriver:
     if driver_name == 'kuzu':
@@ -63,15 +66,19 @@ def get_driver(driver_name: str) -> GraphDriver:
         return FalkorDriver(
             host=FALKORDB_HOST,
             port=int(FALKORDB_PORT),
-            username=FALKORDB_USER, password=FALKORDB_PASSWORD)
+            username=FALKORDB_USER,
+            password=FALKORDB_PASSWORD,
+        )
     else:
         raise ValueError(f'Driver {driver_name} not available')
+
 
 drivers: list[str] = ['kuzu']
 if HAS_NEO4J:
     drivers.append('neo4j')
 if HAS_FALKORDB:
     drivers.append('falkordb')
+
 
 @pytest.fixture
 def sample_entity_node():
@@ -111,7 +118,7 @@ def sample_community_node():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "driver",
+    'driver',
     drivers,
     ids=drivers,
 )
@@ -146,7 +153,7 @@ async def test_entity_node_save_get_and_delete(sample_entity_node, driver):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "driver",
+    'driver',
     drivers,
     ids=drivers,
 )
@@ -168,7 +175,7 @@ async def test_community_node_save_get_and_delete(sample_community_node, driver)
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "driver",
+    'driver',
     drivers,
     ids=drivers,
 )

@@ -147,7 +147,7 @@ async def get_communities_by_nodes(
         routing_='r',
     )
 
-    communities = [get_community_node_from_record(record) for record in records]
+    communities = [get_community_node_from_record(record, driver.provider) for record in records]
 
     return communities
 
@@ -553,7 +553,7 @@ async def community_fulltext_search(
         database_=DEFAULT_DATABASE,
         routing_='r',
     )
-    communities = [get_community_node_from_record(record) for record in records]
+    communities = [get_community_node_from_record(record, driver.provider) for record in records]
 
     return communities
 
@@ -604,7 +604,7 @@ async def community_similarity_search(
         database_=DEFAULT_DATABASE,
         routing_='r',
     )
-    communities = [get_community_node_from_record(record) for record in records]
+    communities = [get_community_node_from_record(record, driver.provider) for record in records]
 
     return communities
 

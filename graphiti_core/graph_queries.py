@@ -9,14 +9,11 @@ from typing import Any
 
 from typing_extensions import LiteralString
 
-from graphiti_core.driver.kuzu_driver import KuzuDriver
 from graphiti_core.models.edges.edge_db_queries import (
     ENTITY_EDGE_SAVE_BULK,
-    KUZU_EDGE_SCHEMA,
 )
 from graphiti_core.models.nodes.node_db_queries import (
     ENTITY_NODE_SAVE_BULK,
-    KUZU_NODE_SCHEMA,
 )
 
 # Mapping from Neo4j fulltext index names to FalkorDB node labels

@@ -446,7 +446,9 @@ class CommunityNode(Node):
             MATCH (c:Community {uuid: $uuid})
             RETURN c.name_embedding AS name_embedding
             """,
-            uuid=self.uuid, database_=DEFAULT_DATABASE, routing_='r'
+            uuid=self.uuid,
+            database_=DEFAULT_DATABASE,
+            routing_='r',
         )
 
         if len(records) == 0:
@@ -496,7 +498,9 @@ class CommunityNode(Node):
             routing_='r',
         )
 
-        communities = [get_community_node_from_record(record, driver.provider) for record in records]
+        communities = [
+            get_community_node_from_record(record, driver.provider) for record in records
+        ]
 
         return communities
 
@@ -533,7 +537,9 @@ class CommunityNode(Node):
             routing_='r',
         )
 
-        communities = [get_community_node_from_record(record, driver.provider) for record in records]
+        communities = [
+            get_community_node_from_record(record, driver.provider) for record in records
+        ]
 
         return communities
 

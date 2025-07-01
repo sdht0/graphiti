@@ -63,7 +63,7 @@ class KuzuDriver(GraphDriver):
             dict_results = [list(result.rows_as_dict()) for result in results]
         else:
             dict_results = list(results.rows_as_dict())
-        return dict_results, None, None # type: ignore
+        return dict_results, None, None  # type: ignore
 
     def session(self, _database: str) -> GraphDriverSession:
         return KuzuDriverSession(self)
