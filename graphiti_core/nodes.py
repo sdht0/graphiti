@@ -359,11 +359,11 @@ class EntityNode(Node):
 
     @classmethod
     async def get_by_uuid(cls, driver: GraphDriver, uuid: str):
-        query = """
-            MATCH (n:Entity {uuid: $uuid})
-            """ + ENTITY_NODE_RETURN(driver.provider)
         records, _, _ = await driver.execute_query(
-            query,
+            """
+            MATCH (n:Entity {uuid: $uuid})
+            """
+            + ENTITY_NODE_RETURN(driver.provider),
             uuid=uuid,
             database_=DEFAULT_DATABASE,
             routing_='r',
@@ -405,13 +405,13 @@ class EntityNode(Node):
 
         records, _, _ = await driver.execute_query(
             """
-        MATCH (n:Entity) WHERE n.group_id IN $group_ids
-        """
+            MATCH (n:Entity) WHERE n.group_id IN $group_ids
+            """
             + cursor_query
             + ENTITY_NODE_RETURN(driver.provider)
             + """
-        ORDER BY n.uuid DESC
-        """
+            ORDER BY n.uuid DESC
+            """
             + limit_query,
             group_ids=group_ids,
             uuid=uuid_cursor,
@@ -455,12 +455,12 @@ class CommunityNode(Node):
         return self.name_embedding
 
     async def load_name_embedding(self, driver: GraphDriver):
-        query: LiteralString = """
+        records, _, _ = await driver.execute_query(
+            """
             MATCH (c:Community {uuid: $uuid})
             RETURN c.name_embedding AS name_embedding
-        """
-        records, _, _ = await driver.execute_query(
-            query, uuid=self.uuid, database_=DEFAULT_DATABASE, routing_='r'
+            """,
+            uuid=self.uuid, database_=DEFAULT_DATABASE, routing_='r'
         )
 
         if len(records) == 0:
@@ -472,15 +472,15 @@ class CommunityNode(Node):
     async def get_by_uuid(cls, driver: GraphDriver, uuid: str):
         records, _, _ = await driver.execute_query(
             """
-        MATCH (n:Community {uuid: $uuid})
-        RETURN
-            n.uuid As uuid, 
-            n.name AS name,
-            n.group_id AS group_id,
-            n.name_embedding AS name_embedding,
-            n.created_at AS created_at, 
-            n.summary AS summary
-        """,
+            MATCH (n:Community {uuid: $uuid})
+            RETURN
+                n.uuid As uuid, 
+                n.name AS name,
+                n.group_id AS group_id,
+                n.name_embedding AS name_embedding,
+                n.created_at AS created_at, 
+                n.summary AS summary
+            """,
             uuid=uuid,
             database_=DEFAULT_DATABASE,
             routing_='r',
@@ -497,14 +497,14 @@ class CommunityNode(Node):
     async def get_by_uuids(cls, driver: GraphDriver, uuids: list[str]):
         records, _, _ = await driver.execute_query(
             """
-        MATCH (n:Community) WHERE n.uuid IN $uuids
-        RETURN
-            n.uuid As uuid, 
-            n.name AS name,
-            n.group_id AS group_id,
-            n.created_at AS created_at, 
-            n.summary AS summary
-        """,
+            MATCH (n:Community) WHERE n.uuid IN $uuids
+            RETURN
+                n.uuid As uuid, 
+                n.name AS name,
+                n.group_id AS group_id,
+                n.created_at AS created_at, 
+                n.summary AS summary
+            """,
             uuids=uuids,
             database_=DEFAULT_DATABASE,
             routing_='r',
@@ -527,18 +527,18 @@ class CommunityNode(Node):
 
         records, _, _ = await driver.execute_query(
             """
-        MATCH (n:Community) WHERE n.group_id IN $group_ids
-        """
+            MATCH (n:Community) WHERE n.group_id IN $group_ids
+            """
             + cursor_query
             + """
-        RETURN
-            n.uuid As uuid, 
-            n.name AS name,
-            n.group_id AS group_id,
-            n.created_at AS created_at, 
-            n.summary AS summary
-        ORDER BY n.uuid DESC
-        """
+            RETURN
+                n.uuid As uuid, 
+                n.name AS name,
+                n.group_id AS group_id,
+                n.created_at AS created_at, 
+                n.summary AS summary
+            ORDER BY n.uuid DESC
+            """
             + limit_query,
             group_ids=group_ids,
             uuid=uuid_cursor,
