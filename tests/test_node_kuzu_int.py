@@ -20,7 +20,6 @@ from uuid import uuid4
 import pytest
 
 from graphiti_core.driver.kuzu_driver import KuzuDriver
-from graphiti_core.graph_queries import create_kuzu_schema
 from graphiti_core.nodes import (
     CommunityNode,
     EntityNode,
@@ -66,20 +65,31 @@ def sample_community_node():
 
 
 @pytest.mark.asyncio
-async def test_entity_node_save_get_and_delete(sample_entity_node):
-    kuzu_driver = KuzuDriver()
-    await create_kuzu_schema(kuzu_driver)
+@pytest.mark.parametrize(
+    "driver",
+    [
+        KuzuDriver(),
+    ],
+)
+async def test_entity_node_save_get_and_delete(sample_entity_node, driver):
+    await sample_entity_node.save(driver)
 
-    await sample_entity_node.save(kuzu_driver)
-
-    retrieved = await EntityNode.get_by_uuid(kuzu_driver, sample_entity_node.uuid)
+    retrieved = await EntityNode.get_by_uuid(driver, sample_entity_node.uuid)
     assert retrieved.uuid == sample_entity_node.uuid
     assert retrieved.name == 'Test Entity'
     assert retrieved.group_id == 'test_group'
 
-    await sample_entity_node.delete(kuzu_driver)
+    retrieved = await EntityNode.get_by_uuids(driver, [sample_entity_node.uuid])
+    assert retrieved[0].uuid == sample_entity_node.uuid
+    assert retrieved[0].name == 'Test Entity'
+    assert retrieved[0].group_id == 'test_group'
 
-    await kuzu_driver.close()
+    name_embedding = await sample_entity_node.load_name_embedding(driver)
+    assert name_embedding == [0.5] * 1024
+
+    await sample_entity_node.delete(driver)
+
+    await driver.close()
 
 
 @pytest.mark.asyncio

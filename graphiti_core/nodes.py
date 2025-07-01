@@ -297,12 +297,14 @@ class EntityNode(Node):
         return self.name_embedding
 
     async def load_name_embedding(self, driver: GraphDriver):
-        query: LiteralString = """
+        records, _, _ = await driver.execute_query(
+            """
             MATCH (n:Entity {uuid: $uuid})
             RETURN n.name_embedding AS name_embedding
-        """
-        records, _, _ = await driver.execute_query(
-            query, uuid=self.uuid, database_=DEFAULT_DATABASE, routing_='r'
+            """,
+            uuid=self.uuid,
+            database_=DEFAULT_DATABASE,
+            routing_='r',
         )
 
         if len(records) == 0:

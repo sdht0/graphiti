@@ -21,6 +21,8 @@ import kuzu
 
 from graphiti_core.driver.driver import GraphDriver, GraphDriverSession
 from graphiti_core.helpers import DEFAULT_DATABASE
+from graphiti_core.models.edges.edge_db_queries import KUZU_EDGE_SCHEMA
+from graphiti_core.models.nodes.node_db_queries import KUZU_NODE_SCHEMA
 
 logger = logging.getLogger(__name__)
 
@@ -35,23 +37,33 @@ class KuzuDriver(GraphDriver):
     ):
         super().__init__()
         self.db = kuzu.Database(db)
+
+        conn = kuzu.Connection(self.db)
+        conn.execute(KUZU_NODE_SCHEMA)
+        conn.execute(KUZU_EDGE_SCHEMA)
+        conn.close()
+
         self.client = kuzu.AsyncConnection(self.db, max_concurrent_queries=max_concurrent_queries)
 
     async def execute_query(
         self, cypher_query_: str, **kwargs: Any
-    ) -> tuple[list[kuzu.QueryResult] | kuzu.QueryResult, None, None]:
+    ) -> tuple[list[dict[str, Any]] | list[list[dict[str, Any]]], None, None]:
         params = dict(kwargs)
         params.pop('database_', None)
         params.pop('routing_', None)
+
         print('kuzu: query = ', cypher_query_)
         print(
             'kuzu: params = ', {k: (v[:5] if isinstance(v, list) else v) for k, v in params.items()}
         )
+
         results = await self.client.execute(cypher_query_, parameters=params)
+
         if isinstance(results, list):
-            return [result.rows_as_dict() for result in results], None, None
+            dict_results = [list(result.rows_as_dict()) for result in results]
         else:
-            return results.rows_as_dict(), None, None
+            dict_results = list(results.rows_as_dict())
+        return dict_results, None, None # type: ignore
 
     def session(self, _database: str) -> GraphDriverSession:
         return KuzuDriverSession(self)

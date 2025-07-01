@@ -150,8 +150,3 @@ def get_entity_edge_save_bulk_query(db_type: str = 'neo4j') -> str:
         RETURN edge.uuid AS uuid"""
     else:
         return ENTITY_EDGE_SAVE_BULK
-
-
-async def create_kuzu_schema(kuzu_driver: KuzuDriver):
-    await kuzu_driver.execute_query(KUZU_NODE_SCHEMA)
-    await kuzu_driver.execute_query(KUZU_EDGE_SCHEMA)
