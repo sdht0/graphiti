@@ -117,6 +117,7 @@ def sample_community_node():
 )
 async def test_entity_node_save_get_and_delete(sample_entity_node, driver):
     driver = get_driver(driver)
+
     await sample_entity_node.save(driver)
 
     retrieved = await EntityNode.get_by_uuid(driver, sample_entity_node.uuid)
@@ -151,6 +152,7 @@ async def test_entity_node_save_get_and_delete(sample_entity_node, driver):
 )
 async def test_community_node_save_get_and_delete(sample_community_node, driver):
     driver = get_driver(driver)
+
     await sample_community_node.save(driver)
 
     retrieved = await CommunityNode.get_by_uuid(driver, sample_community_node.uuid)
@@ -172,6 +174,7 @@ async def test_community_node_save_get_and_delete(sample_community_node, driver)
 )
 async def test_episodic_node_save_get_and_delete(sample_episodic_node, driver):
     driver = get_driver(driver)
+
     await sample_episodic_node.save(driver)
 
     retrieved = await EpisodicNode.get_by_uuid(driver, sample_episodic_node.uuid)
