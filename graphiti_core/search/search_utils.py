@@ -120,7 +120,7 @@ async def get_mentioned_nodes(
         routing_='r',
     )
 
-    nodes = [get_entity_node_from_record(record) for record in records]
+    nodes = [get_entity_node_from_record(record, driver.provider) for record in records]
 
     return nodes
 
@@ -375,7 +375,7 @@ async def node_fulltext_search(
         routing_='r',
     )
 
-    nodes = [get_entity_node_from_record(record) for record in records]
+    nodes = [get_entity_node_from_record(record, driver.provider) for record in records]
 
     return nodes
 
@@ -429,7 +429,7 @@ async def node_similarity_search(
         routing_='r',
     )
 
-    nodes = [get_entity_node_from_record(record) for record in records]
+    nodes = [get_entity_node_from_record(record, driver.provider) for record in records]
 
     return nodes
 
@@ -468,7 +468,7 @@ async def node_bfs_search(
         database_=DEFAULT_DATABASE,
         routing_='r',
     )
-    nodes = [get_entity_node_from_record(record) for record in records]
+    nodes = [get_entity_node_from_record(record, driver.provider) for record in records]
 
     return nodes
 
@@ -768,7 +768,7 @@ async def get_relevant_nodes(
 
     relevant_nodes_dict: dict[str, list[EntityNode]] = {
         result['search_node_uuid']: [
-            get_entity_node_from_record(record) for record in result['matches']
+            get_entity_node_from_record(record, driver.provider) for record in result['matches']
         ]
         for result in results
     }
