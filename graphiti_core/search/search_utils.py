@@ -509,7 +509,7 @@ async def episode_fulltext_search(
         database_=DEFAULT_DATABASE,
         routing_='r',
     )
-    episodes = [get_episodic_node_from_record(record) for record in records]
+    episodes = [get_episodic_node_from_record(record, driver.provider) for record in records]
 
     return episodes
 

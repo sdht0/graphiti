@@ -101,7 +101,7 @@ def sample_episodic_node():
         source=EpisodeType.text,
         source_description='Test source',
         content='Some content here',
-        valid_at=datetime.now(timezone.utc),
+        valid_at=datetime.now(),
     )
 
 
@@ -203,6 +203,26 @@ async def test_episodic_node_save_get_and_delete(sample_episodic_node, driver):
     assert retrieved.source == EpisodeType.text
     assert retrieved.source_description == 'Test source'
     assert retrieved.content == 'Some content here'
+    assert retrieved.valid_at == sample_episodic_node.valid_at
+
+    retrieved = await EpisodicNode.get_by_uuids(driver, [sample_episodic_node.uuid])
+    assert retrieved[0].uuid == sample_episodic_node.uuid
+    assert retrieved[0].name == 'Episode 1'
+    assert retrieved[0].group_id == 'test_group'
+    assert retrieved[0].source == EpisodeType.text
+    assert retrieved[0].source_description == 'Test source'
+    assert retrieved[0].content == 'Some content here'
+    assert retrieved[0].valid_at == sample_episodic_node.valid_at
+
+    retrieved = await EpisodicNode.get_by_group_ids(driver, ['test_group'], limit=2)
+    assert len(retrieved) == 1
+    assert retrieved[0].uuid == sample_episodic_node.uuid
+    assert retrieved[0].name == 'Episode 1'
+    assert retrieved[0].group_id == 'test_group'
+    assert retrieved[0].source == EpisodeType.text
+    assert retrieved[0].source_description == 'Test source'
+    assert retrieved[0].content == 'Some content here'
+    assert retrieved[0].valid_at == sample_episodic_node.valid_at
 
     await sample_episodic_node.delete(driver)
 

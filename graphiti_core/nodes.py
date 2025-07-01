@@ -34,6 +34,7 @@ from graphiti_core.models.nodes.node_db_queries import (
     COMMUNITY_NODE_SAVE,
     ENTITY_NODE_RETURN,
     ENTITY_NODE_SAVE,
+    EPISODIC_NODE_RETURN,
     EPISODIC_NODE_SAVE,
 )
 from graphiti_core.utils.datetime_utils import utc_now
@@ -145,7 +146,7 @@ class EpisodicNode(Node):
 
     async def save(self, driver: GraphDriver):
         result = await driver.execute_query(
-            EPISODIC_NODE_SAVE,
+            EPISODIC_NODE_SAVE(driver.provider),
             uuid=self.uuid,
             name=self.name,
             group_id=self.group_id,
@@ -166,23 +167,15 @@ class EpisodicNode(Node):
     async def get_by_uuid(cls, driver: GraphDriver, uuid: str):
         records, _, _ = await driver.execute_query(
             """
-        MATCH (e:Episodic {uuid: $uuid})
-            RETURN e.content AS content,
-            e.created_at AS created_at,
-            e.valid_at AS valid_at,
-            e.uuid AS uuid,
-            e.name AS name,
-            e.group_id AS group_id,
-            e.source_description AS source_description,
-            e.source AS source,
-            e.entity_edges AS entity_edges
-        """,
+            MATCH (e:Episodic {uuid: $uuid})
+            """
+            + EPISODIC_NODE_RETURN(driver.provider),
             uuid=uuid,
             database_=DEFAULT_DATABASE,
             routing_='r',
         )
 
-        episodes = [get_episodic_node_from_record(record) for record in records]
+        episodes = [get_episodic_node_from_record(record, driver.provider) for record in records]
 
         if len(episodes) == 0:
             raise NodeNotFoundError(uuid)
@@ -193,24 +186,15 @@ class EpisodicNode(Node):
     async def get_by_uuids(cls, driver: GraphDriver, uuids: list[str]):
         records, _, _ = await driver.execute_query(
             """
-        MATCH (e:Episodic) WHERE e.uuid IN $uuids
-            RETURN DISTINCT
-            e.content AS content,
-            e.created_at AS created_at,
-            e.valid_at AS valid_at,
-            e.uuid AS uuid,
-            e.name AS name,
-            e.group_id AS group_id,
-            e.source_description AS source_description,
-            e.source AS source,
-            e.entity_edges AS entity_edges
-        """,
+            MATCH (e:Episodic) WHERE e.uuid IN $uuids
+            """
+            + EPISODIC_NODE_RETURN(driver.provider).replace('RETURN', 'RETURN DISTINCT'),
             uuids=uuids,
             database_=DEFAULT_DATABASE,
             routing_='r',
         )
 
-        episodes = [get_episodic_node_from_record(record) for record in records]
+        episodes = [get_episodic_node_from_record(record, driver.provider) for record in records]
 
         return episodes
 
@@ -227,22 +211,13 @@ class EpisodicNode(Node):
 
         records, _, _ = await driver.execute_query(
             """
-        MATCH (e:Episodic) WHERE e.group_id IN $group_ids
-        """
+            MATCH (e:Episodic) WHERE e.group_id IN $group_ids
+            """
             + cursor_query
+            + EPISODIC_NODE_RETURN(driver.provider).replace('RETURN', 'RETURN DISTINCT')
             + """
-            RETURN DISTINCT
-            e.content AS content,
-            e.created_at AS created_at,
-            e.valid_at AS valid_at,
-            e.uuid AS uuid,
-            e.name AS name,
-            e.group_id AS group_id,
-            e.source_description AS source_description,
-            e.source AS source,
-            e.entity_edges AS entity_edges
-        ORDER BY e.uuid DESC
-        """
+            ORDER BY e.uuid DESC
+            """
             + limit_query,
             group_ids=group_ids,
             uuid=uuid_cursor,
@@ -251,7 +226,7 @@ class EpisodicNode(Node):
             routing_='r',
         )
 
-        episodes = [get_episodic_node_from_record(record) for record in records]
+        episodes = [get_episodic_node_from_record(record, driver.provider) for record in records]
 
         return episodes
 
@@ -259,24 +234,15 @@ class EpisodicNode(Node):
     async def get_by_entity_node_uuid(cls, driver: GraphDriver, entity_node_uuid: str):
         records, _, _ = await driver.execute_query(
             """
-        MATCH (e:Episodic)-[r:MENTIONS]->(n:Entity {uuid: $entity_node_uuid})
-            RETURN DISTINCT
-            e.content AS content,
-            e.created_at AS created_at,
-            e.valid_at AS valid_at,
-            e.uuid AS uuid,
-            e.name AS name,
-            e.group_id AS group_id,
-            e.source_description AS source_description,
-            e.source AS source,
-            e.entity_edges AS entity_edges
-        """,
+            MATCH (e:Episodic)-[r:MENTIONS]->(n:Entity {uuid: $entity_node_uuid})
+            """
+            + EPISODIC_NODE_RETURN(driver.provider),
             entity_node_uuid=entity_node_uuid,
             database_=DEFAULT_DATABASE,
             routing_='r',
         )
 
-        episodes = [get_episodic_node_from_record(record) for record in records]
+        episodes = [get_episodic_node_from_record(record, driver.provider) for record in records]
 
         return episodes
 
@@ -530,9 +496,13 @@ class CommunityNode(Node):
 
 
 # Node helpers
-def get_episodic_node_from_record(record: Any) -> EpisodicNode:
-    created_at = parse_db_date(record['created_at'])
-    valid_at = parse_db_date(record['valid_at'])
+def get_episodic_node_from_record(record: Any, provider: str) -> EpisodicNode:
+    created_at = record['created_at']
+    if provider == 'neo4j':
+        created_at = parse_db_date(created_at)
+    valid_at = record['valid_at']
+    if provider == 'neo4j':
+        valid_at = parse_db_date(valid_at)
 
     if created_at is None:
         raise ValueError(f'created_at cannot be None for episode {record.get("uuid", "unknown")}')

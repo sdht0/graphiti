@@ -45,13 +45,21 @@ CREATE NODE TABLE IF NOT EXISTS Community (
 );
 """
 
-EPISODIC_NODE_SAVE = """
+def EPISODIC_NODE_SAVE(_provider: str) -> str:
+    return """
     MERGE (n:Episodic {uuid: $uuid})
-    SET n = {uuid: $uuid, name: $name, group_id: $group_id,
-        source_description: $source_description, source: $source, content: $content,
-        entity_edges: $entity_edges, created_at: $created_at, valid_at: $valid_at}
+    SET
+        n.name = $name,
+        n.group_id = $group_id,
+        n.source_description = $source_description,
+        n.source = $source,
+        n.content = $content,
+        n.entity_edges = $entity_edges,
+        n.created_at = $created_at,
+        n.valid_at = $valid_at
     RETURN n.uuid AS uuid
-"""
+    """
+
 
 EPISODIC_NODE_SAVE_BULK = """
     UNWIND $episodes AS episode
@@ -62,6 +70,20 @@ EPISODIC_NODE_SAVE_BULK = """
         created_at: episode.created_at, valid_at: episode.valid_at}
     RETURN n.uuid AS uuid
 """
+
+def EPISODIC_NODE_RETURN(_provider: str) -> str:
+    return """
+    RETURN
+        e.content AS content,
+        e.created_at AS created_at,
+        e.valid_at AS valid_at,
+        e.uuid AS uuid,
+        e.name AS name,
+        e.group_id AS group_id,
+        e.source_description AS source_description,
+        e.source AS source,
+        e.entity_edges AS entity_edges
+    """
 
 
 def ENTITY_NODE_SAVE(provider: str) -> str:
