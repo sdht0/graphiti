@@ -87,27 +87,18 @@ class Node(BaseModel, ABC):
     async def save(self, driver: GraphDriver): ...
 
     async def delete(self, driver: GraphDriver):
-        if driver.provider == 'kuzu':
-            result = await driver.execute_query(
-                """
-                MATCH (n {uuid: $uuid})
-                DETACH DELETE n;
-                """,
-                uuid=self.uuid,
-            )
-        else:
-            result = await driver.execute_query(
-                """
-                MATCH (n:Entity|Episodic|Community {uuid: $uuid})
-                DETACH DELETE n
-                """,
-                uuid=self.uuid,
-                database_=DEFAULT_DATABASE,
-            )
+        labels = '' if driver.provider == 'kuzu' else ':Entity|Episodic|Community'
+
+        await driver.execute_query(
+            f"""
+            MATCH (n{labels} {{uuid: $uuid}})
+            DETACH DELETE n
+            """,
+            uuid=self.uuid,
+            database_=DEFAULT_DATABASE,
+        )
 
         logger.debug(f'Deleted Node: {self.uuid}')
-
-        return result
 
     def __hash__(self):
         return hash(self.uuid)
@@ -119,25 +110,18 @@ class Node(BaseModel, ABC):
 
     @classmethod
     async def delete_by_group_id(cls, driver: GraphDriver, group_id: str):
-        if driver.provider == 'kuzu':
-            await driver.execute_query(
-                """
-                MATCH (n {group_id: $group_id})
-                DETACH DELETE n;
-                """,
-                group_id=group_id,
-            )
-        else:
-            await driver.execute_query(
-                """
-                MATCH (n:Entity|Episodic|Community {group_id: $group_id})
-                DETACH DELETE n
-                """,
-                group_id=group_id,
-                database_=DEFAULT_DATABASE,
-            )
+        labels = '' if driver.provider == 'kuzu' else ':Entity|Episodic|Community'
 
-        return 'SUCCESS'
+        await driver.execute_query(
+            f"""
+            MATCH (n{labels} {{group_id: $group_id}})
+            DETACH DELETE n
+            """,
+            group_id=group_id,
+            database_=DEFAULT_DATABASE,
+        )
+
+        logger.debug(f'Deleted Nodes group_id: {group_id}')
 
     @classmethod
     async def get_by_uuid(cls, driver: GraphDriver, uuid: str): ...
