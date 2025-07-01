@@ -84,8 +84,8 @@ async def test_entity_node_save_get_and_delete(sample_entity_node, driver):
     assert retrieved[0].name == 'Test Entity'
     assert retrieved[0].group_id == 'test_group'
 
-    name_embedding = await sample_entity_node.load_name_embedding(driver)
-    assert name_embedding == [0.5] * 1024
+    await sample_entity_node.load_name_embedding(driver)
+    assert sample_entity_node.name_embedding == [0.5] * 1024
 
     await sample_entity_node.delete(driver)
 
