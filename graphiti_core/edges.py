@@ -37,6 +37,7 @@ from graphiti_core.nodes import Node
 
 logger = logging.getLogger(__name__)
 
+
 def ENTITY_EDGE_RETURN(provider: str) -> str:
     if provider == 'kuzu':
         return """
@@ -54,7 +55,7 @@ def ENTITY_EDGE_RETURN(provider: str) -> str:
             e.invalid_at AS invalid_at,
             e AS attributes
         """
-    
+
     return """
     RETURN
         e.uuid AS uuid,

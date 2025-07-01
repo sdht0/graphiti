@@ -358,7 +358,7 @@ class Graphiti:
         group_id: str = '',
         uuid: str | None = None,
         update_communities: bool = False,
-        entity_types: dict[str, BaseModel] | None = None,
+        entity_types: dict[str, type[BaseModel]] | None = None,
         excluded_entity_types: list[str] | None = None,
         previous_episode_uuids: list[str] | None = None,
         edge_types: dict[str, BaseModel] | None = None,

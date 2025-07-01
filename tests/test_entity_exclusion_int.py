@@ -73,7 +73,7 @@ async def test_exclude_default_entity_type():
         await graphiti.build_indices_and_constraints()
 
         # Define entity types but exclude the default 'Entity' type
-        entity_types = {
+        entity_types: dict[str, type[BaseModel]] = {
             'Person': Person,
             'Organization': Organization,
         }
@@ -126,7 +126,7 @@ async def test_exclude_specific_custom_types():
         await graphiti.build_indices_and_constraints()
 
         # Define multiple entity types
-        entity_types = {
+        entity_types: dict[str, type[BaseModel]] = {
             'Person': Person,
             'Organization': Organization,
             'Location': Location,
@@ -184,7 +184,7 @@ async def test_exclude_all_types():
     try:
         await graphiti.build_indices_and_constraints()
 
-        entity_types = {
+        entity_types: dict[str, type[BaseModel]] = {
             'Person': Person,
             'Organization': Organization,
         }
@@ -228,7 +228,7 @@ async def test_exclude_no_types():
     try:
         await graphiti.build_indices_and_constraints()
 
-        entity_types = {
+        entity_types: dict[str, type[BaseModel]] = {
             'Person': Person,
             'Organization': Organization,
         }
@@ -304,7 +304,7 @@ async def test_excluded_types_parameter_validation_in_add_episode():
     graphiti = Graphiti(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD)
 
     try:
-        entity_types = {
+        entity_types: dict[str, type[BaseModel]] = {
             'Person': Person,
         }
 
