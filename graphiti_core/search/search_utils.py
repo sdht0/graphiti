@@ -562,7 +562,7 @@ async def community_similarity_search(
 
     group_filter_query: LiteralString = ''
     if group_ids is not None:
-        group_filter_query += 'WHERE comm.group_id IN $group_ids'
+        group_filter_query += 'WHERE c.group_id IN $group_ids'
         query_params['group_ids'] = group_ids
 
     query = (
