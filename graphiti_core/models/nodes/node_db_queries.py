@@ -133,3 +133,15 @@ def COMMUNITY_NODE_SAVE(provider: str) -> str:
     WITH n CALL db.create.setNodeVectorProperty(n, "name_embedding", $name_embedding)
     RETURN n.uuid AS uuid
 """
+
+
+def COMMUNITY_NODE_RETURN(_provider: str) -> str:
+    return """
+    RETURN
+        c.uuid As uuid,
+        c.name AS name,
+        c.name_embedding AS name_embedding,
+        c.group_id AS group_id,
+        c.summary AS summary,
+        c.created_at AS created_at
+    """

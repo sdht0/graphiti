@@ -37,6 +37,7 @@ from graphiti_core.helpers import (
     normalize_l2,
     semaphore_gather,
 )
+from graphiti_core.models.nodes.node_db_queries import COMMUNITY_NODE_RETURN
 from graphiti_core.nodes import (
     ENTITY_NODE_RETURN,
     CommunityNode,
@@ -132,13 +133,7 @@ async def get_communities_by_nodes(
 
     query = """
     MATCH (c:Community)-[:HAS_MEMBER]->(n:Entity) WHERE n.uuid IN $uuids
-    RETURN DISTINCT
-        c.uuid As uuid, 
-        c.group_id AS group_id,
-        c.name AS name,
-        c.created_at AS created_at, 
-        c.summary AS summary
-    """
+    """ + COMMUNITY_NODE_RETURN(driver.provider).replace('RETURN', 'RETURN DISTINCT')
 
     records, _, _ = await driver.execute_query(
         query,
@@ -533,13 +528,10 @@ async def community_fulltext_search(
     query = (
         get_nodes_query(driver.provider, 'community_name', '$query')
         + """
-        YIELD node AS comm, score
-        RETURN
-            comm.uuid AS uuid,
-            comm.group_id AS group_id, 
-            comm.name AS name, 
-            comm.created_at AS created_at, 
-            comm.summary AS summary
+        YIELD node AS c, score
+        """
+        + COMMUNITY_NODE_RETURN(driver.provider)
+        + """
         ORDER BY score DESC
         LIMIT $limit
         """
@@ -576,22 +568,20 @@ async def community_similarity_search(
     query = (
         RUNTIME_QUERY
         + """
-           MATCH (comm:Community)
-           """
+        MATCH (c:Community)
+        """
         + group_filter_query
         + """
-           WITH comm, """
-        + get_vector_cosine_func_query('comm.name_embedding', '$search_vector', driver.provider)
-        + """ AS score
-           WHERE score > $min_score
-           RETURN
-               comm.uuid As uuid,
-               comm.group_id AS group_id,
-               comm.name AS name, 
-               comm.created_at AS created_at, 
-               comm.summary AS summary
-           ORDER BY score DESC
-           LIMIT $limit
+        WITH c, """
+        + get_vector_cosine_func_query('c.name_embedding', '$search_vector', driver.provider)
+        + """
+        AS score
+        WHERE score > $min_score
+        """
+        + COMMUNITY_NODE_RETURN(driver.provider)
+        + """
+        ORDER BY score DESC
+        LIMIT $limit
         """
     )
 

@@ -30,6 +30,7 @@ from graphiti_core.embedder import EmbedderClient
 from graphiti_core.errors import NodeNotFoundError
 from graphiti_core.helpers import DEFAULT_DATABASE, parse_db_date
 from graphiti_core.models.nodes.node_db_queries import (
+    COMMUNITY_NODE_RETURN,
     COMMUNITY_NODE_SAVE,
     ENTITY_NODE_RETURN,
     ENTITY_NODE_SAVE,
@@ -460,15 +461,9 @@ class CommunityNode(Node):
     async def get_by_uuid(cls, driver: GraphDriver, uuid: str):
         records, _, _ = await driver.execute_query(
             """
-            MATCH (n:Community {uuid: $uuid})
-            RETURN
-                n.uuid As uuid, 
-                n.name AS name,
-                n.group_id AS group_id,
-                n.name_embedding AS name_embedding,
-                n.created_at AS created_at, 
-                n.summary AS summary
-            """,
+            MATCH (c:Community {uuid: $uuid})
+            """
+            + COMMUNITY_NODE_RETURN(driver.provider),
             uuid=uuid,
             database_=DEFAULT_DATABASE,
             routing_='r',
@@ -485,14 +480,9 @@ class CommunityNode(Node):
     async def get_by_uuids(cls, driver: GraphDriver, uuids: list[str]):
         records, _, _ = await driver.execute_query(
             """
-            MATCH (n:Community) WHERE n.uuid IN $uuids
-            RETURN
-                n.uuid As uuid, 
-                n.name AS name,
-                n.group_id AS group_id,
-                n.created_at AS created_at, 
-                n.summary AS summary
-            """,
+            MATCH (c:Community) WHERE c.uuid IN $uuids
+            """
+            + COMMUNITY_NODE_RETURN(driver.provider),
             uuids=uuids,
             database_=DEFAULT_DATABASE,
             routing_='r',
@@ -512,22 +502,17 @@ class CommunityNode(Node):
         limit: int | None = None,
         uuid_cursor: str | None = None,
     ):
-        cursor_query: LiteralString = 'AND n.uuid < $uuid' if uuid_cursor else ''
+        cursor_query: LiteralString = 'AND c.uuid < $uuid' if uuid_cursor else ''
         limit_query: LiteralString = 'LIMIT $limit' if limit is not None else ''
 
         records, _, _ = await driver.execute_query(
             """
-            MATCH (n:Community) WHERE n.group_id IN $group_ids
+            MATCH (c:Community) WHERE c.group_id IN $group_ids
             """
             + cursor_query
+            + COMMUNITY_NODE_RETURN(driver.provider)
             + """
-            RETURN
-                n.uuid As uuid, 
-                n.name AS name,
-                n.group_id AS group_id,
-                n.created_at AS created_at, 
-                n.summary AS summary
-            ORDER BY n.uuid DESC
+            ORDER BY c.uuid DESC
             """
             + limit_query,
             group_ids=group_ids,

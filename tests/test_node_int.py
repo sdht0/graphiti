@@ -168,6 +168,18 @@ async def test_community_node_save_get_and_delete(sample_community_node, driver)
     assert retrieved.group_id == 'test_group'
     assert retrieved.summary == 'Community summary'
 
+    retrieved = await CommunityNode.get_by_uuids(driver, [sample_community_node.uuid])
+    assert retrieved[0].uuid == sample_community_node.uuid
+    assert retrieved[0].name == 'Community A'
+    assert retrieved[0].group_id == 'test_group'
+    assert retrieved[0].summary == 'Community summary'
+
+    retrieved = await CommunityNode.get_by_group_ids(driver, ['test_group'], limit=2)
+    assert len(retrieved) == 1
+    assert retrieved[0].uuid == sample_community_node.uuid
+    assert retrieved[0].name == 'Community A'
+    assert retrieved[0].group_id == 'test_group'
+
     await sample_community_node.delete(driver)
 
     await driver.close()
