@@ -17,17 +17,31 @@ limitations under the License.
 import logging
 import os
 import sys
-import unittest
 from datetime import datetime, timezone
 
 import pytest
 from dotenv import load_dotenv
 
+from graphiti_core.driver.driver import GraphDriver
+from graphiti_core.driver.kuzu_driver import KuzuDriver
 from graphiti_core.edges import EntityEdge, EpisodicEdge
 from graphiti_core.graphiti import Graphiti
 from graphiti_core.helpers import semaphore_gather
 from graphiti_core.nodes import EntityNode, EpisodeType, EpisodicNode
 from graphiti_core.search.search_helpers import search_results_to_context_string
+
+pytestmark = pytest.mark.integration
+
+pytest_plugins = ('pytest_asyncio',)
+
+load_dotenv()
+
+try:
+    from graphiti_core.driver.neo4j_driver import Neo4jDriver
+
+    HAS_NEO4J = True
+except ImportError:
+    HAS_NEO4J = False
 
 try:
     from graphiti_core.driver.falkordb_driver import FalkorDriver
@@ -36,16 +50,41 @@ try:
 except ImportError:
     HAS_FALKORDB = False
 
-pytestmark = pytest.mark.integration
-
-pytest_plugins = ('pytest_asyncio',)
-
-load_dotenv()
+NEO4J_URI = os.getenv('NEO4J_URI', 'bolt://localhost:7687')
+NEO4J_USER = os.getenv('NEO4J_USER', 'neo4j')
+NEO4J_PASSWORD = os.getenv('NEO4J_PASSWORD', 'test')
 
 FALKORDB_HOST = os.getenv('FALKORDB_HOST', 'localhost')
 FALKORDB_PORT = os.getenv('FALKORDB_PORT', '6379')
 FALKORDB_USER = os.getenv('FALKORDB_USER', None)
 FALKORDB_PASSWORD = os.getenv('FALKORDB_PASSWORD', None)
+
+
+def get_driver(driver_name: str) -> GraphDriver:
+    if driver_name == 'kuzu':
+        return KuzuDriver()
+    elif driver_name == 'neo4j':
+        return Neo4jDriver(
+            uri=NEO4J_URI,
+            user=NEO4J_USER,
+            password=NEO4J_PASSWORD,
+        )
+    elif driver_name == 'falkordb':
+        return FalkorDriver(
+            host=FALKORDB_HOST,
+            port=int(FALKORDB_PORT),
+            username=FALKORDB_USER,
+            password=FALKORDB_PASSWORD,
+        )
+    else:
+        raise ValueError(f'Driver {driver_name} not available')
+
+
+drivers: list[str] = ['kuzu']
+if HAS_NEO4J:
+    drivers.append('neo4j')
+if HAS_FALKORDB:
+    drivers.append('falkordb')
 
 
 def setup_logging():
@@ -70,18 +109,15 @@ def setup_logging():
 
 
 @pytest.mark.asyncio
-@unittest.skipIf(not HAS_FALKORDB, 'FalkorDB is not installed')
-async def test_graphiti_falkordb_init():
+@pytest.mark.parametrize(
+    'driver',
+    drivers,
+    ids=drivers,
+)
+async def test_graphiti_init(driver):
     logger = setup_logging()
-
-    falkor_driver = FalkorDriver(
-        host=FALKORDB_HOST,
-        port=int(FALKORDB_PORT),
-        username=FALKORDB_USER,
-        password=FALKORDB_PASSWORD,
-    )
-
-    graphiti = Graphiti(graph_driver=falkor_driver)
+    graph_driver = get_driver(driver)
+    graphiti = Graphiti(graph_driver=graph_driver)
 
     results = await graphiti.search_(query='Who is the user?')
 
@@ -93,18 +129,15 @@ async def test_graphiti_falkordb_init():
 
 
 @pytest.mark.asyncio
-@unittest.skipIf(not HAS_FALKORDB, 'FalkorDB is not installed')
-async def test_graph_falkordb_integration():
-    falkor_driver = FalkorDriver(
-        host=FALKORDB_HOST,
-        port=int(FALKORDB_PORT),
-        username=FALKORDB_USER,
-        password=FALKORDB_PASSWORD,
-    )
-
-    client = Graphiti(graph_driver=falkor_driver)
+@pytest.mark.parametrize(
+    'driver',
+    drivers,
+    ids=drivers,
+)
+async def test_graph_integration(driver):
+    graph_driver = get_driver(driver)
+    client = Graphiti(graph_driver=graph_driver)
     embedder = client.embedder
-    driver = client.driver
 
     now = datetime.now(timezone.utc)
     episode = EpisodicNode(
@@ -116,7 +149,7 @@ async def test_graph_falkordb_integration():
         source_description='conversation message',
         content='Alice likes Bob',
         entity_edges=[],
-        group_id='test_group',
+        group_id='test_group_id',
     )
 
     alice_node = EntityNode(
@@ -124,25 +157,27 @@ async def test_graph_falkordb_integration():
         labels=[],
         created_at=now,
         summary='Alice summary',
-        group_id='test_group',
+        group_id='test_group_id',
     )
+    await alice_node.generate_name_embedding(embedder)
 
     bob_node = EntityNode(
-        name='Bob', labels=[], created_at=now, summary='Bob summary', group_id='test_group'
+        name='Bob', labels=[], created_at=now, summary='Bob summary', group_id='test_group_id'
     )
+    await bob_node.generate_name_embedding(embedder)
 
     episodic_edge_1 = EpisodicEdge(
         source_node_uuid=episode.uuid,
         target_node_uuid=alice_node.uuid,
         created_at=now,
-        group_id='test_group',
+        group_id='test_group_id',
     )
 
     episodic_edge_2 = EpisodicEdge(
         source_node_uuid=episode.uuid,
         target_node_uuid=bob_node.uuid,
         created_at=now,
-        group_id='test_group',
+        group_id='test_group_id',
     )
 
     entity_edge = EntityEdge(
@@ -155,26 +190,23 @@ async def test_graph_falkordb_integration():
         expired_at=now,
         valid_at=now,
         invalid_at=now,
-        group_id='test_group',
+        group_id='test_group_id',
     )
-
     await entity_edge.generate_embedding(embedder)
 
     nodes = [episode, alice_node, bob_node]
     edges = [episodic_edge_1, episodic_edge_2, entity_edge]
 
     # test save
-    await semaphore_gather(*[node.save(driver) for node in nodes])
-    await semaphore_gather(*[edge.save(driver) for edge in edges])
+    await semaphore_gather(*[node.save(graph_driver) for node in nodes])
+    await semaphore_gather(*[edge.save(graph_driver) for edge in edges])
 
     # test get
-    assert await EpisodicNode.get_by_uuid(driver, episode.uuid) is not None
-    assert await EntityNode.get_by_uuid(driver, alice_node.uuid) is not None
-    assert await EpisodicEdge.get_by_uuid(driver, episodic_edge_1.uuid) is not None
-    assert await EntityEdge.get_by_uuid(driver, entity_edge.uuid) is not None
+    assert await EpisodicNode.get_by_uuid(graph_driver, episode.uuid) is not None
+    assert await EntityNode.get_by_uuid(graph_driver, alice_node.uuid) is not None
+    assert await EpisodicEdge.get_by_uuid(graph_driver, episodic_edge_1.uuid) is not None
+    assert await EntityEdge.get_by_uuid(graph_driver, entity_edge.uuid) is not None
 
     # test delete
-    await semaphore_gather(*[node.delete(driver) for node in nodes])
-    await semaphore_gather(*[edge.delete(driver) for edge in edges])
-
-    await client.close()
+    await semaphore_gather(*[node.delete(graph_driver) for node in nodes])
+    await semaphore_gather(*[edge.delete(graph_driver) for edge in edges])
