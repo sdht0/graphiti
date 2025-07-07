@@ -24,7 +24,7 @@ from numpy._typing import NDArray
 from typing_extensions import LiteralString
 
 from graphiti_core.driver.driver import GraphDriver
-from graphiti_core.edges import EntityEdge, get_entity_edge_from_record
+from graphiti_core.edges import ENTITY_EDGE_RETURN, EntityEdge, get_entity_edge_from_record
 from graphiti_core.graph_queries import (
     get_nodes_query,
     get_relationships_query,
@@ -162,20 +162,11 @@ async def edge_fulltext_search(
         + filter_query
         + """
         WITH r, score, startNode(r) AS n, endNode(r) AS m
-        RETURN
-            r.uuid AS uuid,
-            r.group_id AS group_id,
-            n.uuid AS source_node_uuid,
-            m.uuid AS target_node_uuid,
-            r.created_at AS created_at,
-            r.name AS name,
-            r.fact AS fact,
-            r.episodes AS episodes,
-            r.expired_at AS expired_at,
-            r.valid_at AS valid_at,
-            r.invalid_at AS invalid_at,
-            properties(r) AS attributes
-        ORDER BY score DESC LIMIT $limit
+        """
+        + ENTITY_EDGE_RETURN(driver.provider)
+        + """
+        ORDER BY score DESC
+        LIMIT $limit
         """
     )
 
@@ -235,19 +226,9 @@ async def edge_similarity_search(
         + get_vector_cosine_func_query('r.fact_embedding', '$search_vector', driver.provider)
         + """ AS score
         WHERE score > $min_score
-        RETURN
-            r.uuid AS uuid,
-            r.group_id AS group_id,
-            startNode(r).uuid AS source_node_uuid,
-            endNode(r).uuid AS target_node_uuid,
-            r.created_at AS created_at,
-            r.name AS name,
-            r.fact AS fact,
-            r.episodes AS episodes,
-            r.expired_at AS expired_at,
-            r.valid_at AS valid_at,
-            r.invalid_at AS invalid_at,
-            properties(r) AS attributes
+        """
+        + ENTITY_EDGE_RETURN(driver.provider)
+        + """
         ORDER BY score DESC
         LIMIT $limit
         """
@@ -292,20 +273,8 @@ async def edge_bfs_search(
         WHERE r.uuid = rel.uuid
         """
         + filter_query
-        + """  
-        RETURN DISTINCT
-            r.uuid AS uuid,
-            r.group_id AS group_id,
-            startNode(r).uuid AS source_node_uuid,
-            endNode(r).uuid AS target_node_uuid,
-            r.created_at AS created_at,
-            r.name AS name,
-            r.fact AS fact,
-            r.episodes AS episodes,
-            r.expired_at AS expired_at,
-            r.valid_at AS valid_at,
-            r.invalid_at AS invalid_at,
-            properties(r) AS attributes
+        + ENTITY_EDGE_RETURN(driver.provider).replace('RETURN', 'RETURN DISTINCT')
+        + """
         LIMIT $limit
         """
     )
@@ -860,6 +829,9 @@ async def get_edge_invalidation_candidates(
         WHERE score > $min_score
         WITH edge, e, score
         ORDER BY score DESC
+        """
+        + ENTITY_EDGE_RETURN(driver.provider)
+        + """
         RETURN edge.uuid AS search_edge_uuid,
             collect({
                 uuid: e.uuid,

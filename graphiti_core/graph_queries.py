@@ -96,7 +96,7 @@ def get_nodes_query(db_type: str = 'neo4j', name: str = '', query: str | None = 
 
 def get_vector_cosine_func_query(property: str, param: str, provider: str) -> str:
     if provider == 'kuzu':
-        return f'vector.cosineDistance({property}, {param})'
+        return f'array_cosine_similarity({property}, {param})'
 
     if provider == 'falkordb':
         # FalkorDB uses a different syntax for regular cosine similarity and Neo4j uses normalized cosine similarity

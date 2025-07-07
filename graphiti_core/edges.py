@@ -43,8 +43,8 @@ def ENTITY_EDGE_RETURN(provider: str) -> str:
         return """
         RETURN
             e.uuid AS uuid,
-            startNode(e).uuid AS source_node_uuid,
-            endNode(e).uuid AS target_node_uuid,
+            n.uuid AS source_node_uuid,
+            m.uuid AS target_node_uuid,
             e.created_at AS created_at,
             e.name AS name,
             e.group_id AS group_id,
@@ -54,6 +54,41 @@ def ENTITY_EDGE_RETURN(provider: str) -> str:
             e.valid_at AS valid_at,
             e.invalid_at AS invalid_at,
             e AS attributes
+        """
+
+    return """
+    RETURN
+        e.uuid AS uuid,
+        startNode(e).uuid AS source_node_uuid,
+        endNode(e).uuid AS target_node_uuid,
+        e.created_at AS created_at,
+        e.name AS name,
+        e.group_id AS group_id,
+        e.fact AS fact,
+        e.episodes AS episodes,
+        e.expired_at AS expired_at,
+        e.valid_at AS valid_at,
+        e.invalid_at AS invalid_at,
+        properties(e) AS attributes
+    """
+
+def ENTITY_EDGE_RETURN_COLLECT(provider: str) -> str:
+    if provider == 'kuzu':
+        return """
+        RETURN collect({
+            uuid: e.uuid,
+            source_node_uuid: startNode(e).uuid,
+            target_node_uuid: endNode(e).uuid,
+            created_at: e.created_at,
+            name: e.name,
+            group_id: e.group_id,
+            fact: e.fact,
+            episodes: e.episodes,
+            expired_at: e.expired_at,
+            valid_at: e.valid_at,
+            invalid_at: e.invalid_at,
+            attributes: properties(e)
+        })
         """
 
     return """
