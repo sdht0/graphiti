@@ -26,8 +26,14 @@ CREATE REL TABLE IF NOT EXISTS RELATES_TO(
     FROM Entity TO Entity,
     uuid STRING PRIMARY KEY,
     group_id STRING,
+    name STRING,
+    fact STRING,
+    fact_embedding FLOAT[],
+    episodes STRING[],
     created_at TIMESTAMP,
-    fact_embedding FLOAT[]
+    expired_at TIMESTAMP,
+    valid_at TIMESTAMP,
+    invalid_at TIMESTAMP
 );
 CREATE REL TABLE IF NOT EXISTS HAS_MEMBER(
     FROM Community TO Entity,
@@ -38,12 +44,24 @@ CREATE REL TABLE IF NOT EXISTS HAS_MEMBER(
 );
 """
 
-EPISODIC_EDGE_SAVE = """
+def EPISODIC_EDGE_SAVE(provider: str) -> str:
+    if provider == 'kuzu':
+        return """
         MATCH (episode:Episodic {uuid: $episode_uuid}) 
         MATCH (node:Entity {uuid: $entity_uuid}) 
         MERGE (episode)-[r:MENTIONS {uuid: $uuid}]->(node)
-        SET r = {uuid: $uuid, group_id: $group_id, created_at: $created_at}
+        SET
+            r.uuid = $uuid,
+            r.group_id = $group_id,
+            r.created_at = $created_at
         RETURN r.uuid AS uuid"""
+
+    return """
+    MATCH (episode:Episodic {uuid: $episode_uuid}) 
+    MATCH (node:Entity {uuid: $entity_uuid}) 
+    MERGE (episode)-[r:MENTIONS {uuid: $uuid}]->(node)
+    SET r = {uuid: $uuid, group_id: $group_id, created_at: $created_at}
+    RETURN r.uuid AS uuid"""
 
 EPISODIC_EDGE_SAVE_BULK = """
     UNWIND $episodic_edges AS edge
@@ -54,13 +72,99 @@ EPISODIC_EDGE_SAVE_BULK = """
     RETURN r.uuid AS uuid
 """
 
-ENTITY_EDGE_SAVE = """
-        MATCH (source:Entity {uuid: $edge_data.source_uuid})
-        MATCH (target:Entity {uuid: $edge_data.target_uuid})
-        MERGE (source)-[r:RELATES_TO {uuid: $edge_data.uuid}]->(target)
-        SET r = $edge_data
-        WITH r CALL db.create.setRelationshipVectorProperty(r, "fact_embedding", $edge_data.fact_embedding)
-        RETURN r.uuid AS uuid"""
+def ENTITY_EDGE_RETURN(provider: str) -> str:
+    if provider == 'kuzu':
+        return """
+            e.uuid AS uuid,
+            n.uuid AS source_node_uuid,
+            m.uuid AS target_node_uuid,
+            e.created_at AS created_at,
+            e.name AS name,
+            e.group_id AS group_id,
+            e.fact AS fact,
+            e.episodes AS episodes,
+            e.expired_at AS expired_at,
+            e.valid_at AS valid_at,
+            e.invalid_at AS invalid_at,
+            e AS attributes
+        """
+
+    return """
+        e.uuid AS uuid,
+        startNode(e).uuid AS source_node_uuid,
+        endNode(e).uuid AS target_node_uuid,
+        e.created_at AS created_at,
+        e.name AS name,
+        e.group_id AS group_id,
+        e.fact AS fact,
+        e.episodes AS episodes,
+        e.expired_at AS expired_at,
+        e.valid_at AS valid_at,
+        e.invalid_at AS invalid_at,
+        properties(e) AS attributes
+    """
+
+def ENTITY_EDGE_RETURN_COLLECT(provider: str) -> str:
+    if provider == 'kuzu':
+        return """
+        collect({
+            uuid: e.uuid,
+            source_node_uuid: startNode(e).uuid,
+            target_node_uuid: endNode(e).uuid,
+            created_at: e.created_at,
+            name: e.name,
+            group_id: e.group_id,
+            fact: e.fact,
+            episodes: e.episodes,
+            expired_at: e.expired_at,
+            valid_at: e.valid_at,
+            invalid_at: e.invalid_at,
+            attributes: properties(e)
+        })
+        """
+
+    return """
+        e.uuid AS uuid,
+        startNode(e).uuid AS source_node_uuid,
+        endNode(e).uuid AS target_node_uuid,
+        e.created_at AS created_at,
+        e.name AS name,
+        e.group_id AS group_id,
+        e.fact AS fact,
+        e.episodes AS episodes,
+        e.expired_at AS expired_at,
+        e.valid_at AS valid_at,
+        e.invalid_at AS invalid_at,
+        properties(e) AS attributes
+    """
+
+def ENTITY_EDGE_SAVE(provider: str) -> str:
+    if provider == 'kuzu':
+        return """
+        MATCH (source:Entity {uuid: $source_uuid})
+        MATCH (target:Entity {uuid: $target_uuid})
+        MERGE (source)-[r:RELATES_TO {uuid: $uuid}]->(target)
+        SET
+            r.name = $name,
+            r.group_id = $group_id,
+            r.fact = $fact,
+            r.fact_embedding = $fact_embedding,
+            r.episodes = $episodes,
+            r.created_at = $created_at,
+            r.expired_at = $expired_at,
+            r.valid_at = $valid_at,
+            r.invalid_at = $invalid_at
+        RETURN r.uuid AS uuid
+        """
+
+    return """
+    MATCH (source:Entity {uuid: $edge_data.source_uuid})
+    MATCH (target:Entity {uuid: $edge_data.target_uuid})
+    MERGE (source)-[r:RELATES_TO {uuid: $edge_data.uuid}]->(target)
+    SET r = $edge_data
+    WITH r CALL db.create.setRelationshipVectorProperty(r, "fact_embedding", $edge_data.fact_embedding)
+    RETURN r.uuid AS uuid
+    """
 
 ENTITY_EDGE_SAVE_BULK = """
     UNWIND $entity_edges AS edge
@@ -72,9 +176,41 @@ ENTITY_EDGE_SAVE_BULK = """
     RETURN edge.uuid AS uuid
 """
 
-COMMUNITY_EDGE_SAVE = """
+def COMMUNITY_EDGE_RETURN(_provider: str) -> str:
+    return """
+    e.uuid As uuid,
+    e.group_id AS group_id,
+    n.uuid AS source_node_uuid, 
+    m.uuid AS target_node_uuid, 
+    e.created_at AS created_at
+    """
+
+def COMMUNITY_EDGE_SAVE(provider: str) -> str:
+    if provider == 'kuzu':
+        return """
+            MATCH (community:Community {uuid: $community_uuid}) 
+            MATCH (node:Entity {uuid: $entity_uuid}) 
+            MERGE (community)-[r:HAS_MEMBER {uuid: $uuid}]->(node)
+            SET
+                r.uuid = $uuid,
+                r.group_id = $group_id,
+                r.created_at = $created_at
+            RETURN r.uuid AS uuid
+            UNION
+            MATCH (community:Community {uuid: $community_uuid}) 
+            MATCH (node:Community {uuid: $entity_uuid}) 
+            MERGE (community)-[r:HAS_MEMBER {uuid: $uuid}]->(node)
+            SET
+                r.uuid = $uuid,
+                r.group_id = $group_id,
+                r.created_at = $created_at
+            RETURN r.uuid AS uuid
+        """
+
+    return """
         MATCH (community:Community {uuid: $community_uuid}) 
         MATCH (node:Entity | Community {uuid: $entity_uuid}) 
         MERGE (community)-[r:HAS_MEMBER {uuid: $uuid}]->(node)
         SET r = {uuid: $uuid, group_id: $group_id, created_at: $created_at}
-        RETURN r.uuid AS uuid"""
+        RETURN r.uuid AS uuid
+    """

@@ -75,7 +75,6 @@ EPISODIC_NODE_SAVE_BULK = """
 
 def EPISODIC_NODE_RETURN(_provider: str) -> str:
     return """
-    RETURN
         e.content AS content,
         e.created_at AS created_at,
         e.valid_at AS valid_at,
@@ -125,13 +124,11 @@ ENTITY_NODE_SAVE_BULK = """
 def ENTITY_NODE_RETURN(provider: str) -> str:
     if provider == 'kuzu':
         return """
-        RETURN
             n as attributes,
             n.labels as labels
         """
 
     return """
-    RETURN
         properties(n) AS attributes,
         labels(n) AS labels
     """
@@ -161,7 +158,6 @@ def COMMUNITY_NODE_SAVE(provider: str) -> str:
 
 def COMMUNITY_NODE_RETURN(_provider: str) -> str:
     return """
-    RETURN
         c.uuid As uuid,
         c.name AS name,
         c.name_embedding AS name_embedding,

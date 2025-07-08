@@ -48,6 +48,9 @@ class Neo4jDriver(GraphDriver):
 
         return result
 
+    async def print_graph(self):
+        pass
+
     def session(self, database: str) -> GraphDriverSession:
         return self.client.session(database=database)  # type: ignore
 

@@ -236,6 +236,7 @@ async def determine_entity_community(
     records, _, _ = await driver.execute_query(
         """
         MATCH (c:Community)-[:HAS_MEMBER]->(n:Entity {uuid: $entity_uuid})
+        RETURN
         """
         + COMMUNITY_NODE_RETURN(driver.provider),
         entity_uuid=entity.uuid,
@@ -249,6 +250,7 @@ async def determine_entity_community(
     records, _, _ = await driver.execute_query(
         """
         MATCH (c:Community)-[:HAS_MEMBER]->(m:Entity)-[:RELATES_TO]-(n:Entity {uuid: $entity_uuid})
+        RETURN
         """
         + COMMUNITY_NODE_RETURN(driver.provider),
         entity_uuid=entity.uuid,

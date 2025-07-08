@@ -168,6 +168,7 @@ class EpisodicNode(Node):
         records, _, _ = await driver.execute_query(
             """
             MATCH (e:Episodic {uuid: $uuid})
+            RETURN
             """
             + EPISODIC_NODE_RETURN(driver.provider),
             uuid=uuid,
@@ -187,8 +188,9 @@ class EpisodicNode(Node):
         records, _, _ = await driver.execute_query(
             """
             MATCH (e:Episodic) WHERE e.uuid IN $uuids
+            RETURN DISTINCT
             """
-            + EPISODIC_NODE_RETURN(driver.provider).replace('RETURN', 'RETURN DISTINCT'),
+            + EPISODIC_NODE_RETURN(driver.provider),
             uuids=uuids,
             database_=DEFAULT_DATABASE,
             routing_='r',
@@ -214,7 +216,10 @@ class EpisodicNode(Node):
             MATCH (e:Episodic) WHERE e.group_id IN $group_ids
             """
             + cursor_query
-            + EPISODIC_NODE_RETURN(driver.provider).replace('RETURN', 'RETURN DISTINCT')
+            + """
+            RETURN DISTINCT
+            """
+            + EPISODIC_NODE_RETURN(driver.provider)
             + """
             ORDER BY uuid DESC
             """
@@ -235,6 +240,7 @@ class EpisodicNode(Node):
         records, _, _ = await driver.execute_query(
             """
             MATCH (e:Episodic)-[r:MENTIONS]->(n:Entity {uuid: $entity_node_uuid})
+            RETURN
             """
             + EPISODIC_NODE_RETURN(driver.provider),
             entity_node_uuid=entity_node_uuid,
@@ -315,6 +321,7 @@ class EntityNode(Node):
         records, _, _ = await driver.execute_query(
             """
             MATCH (n:Entity {uuid: $uuid})
+            RETURN
             """
             + ENTITY_NODE_RETURN(driver.provider),
             uuid=uuid,
@@ -334,6 +341,7 @@ class EntityNode(Node):
         records, _, _ = await driver.execute_query(
             """
             MATCH (n:Entity) WHERE n.uuid IN $uuids
+            RETURN
             """
             + ENTITY_NODE_RETURN(driver.provider),
             uuids=uuids,
@@ -361,6 +369,9 @@ class EntityNode(Node):
             MATCH (n:Entity) WHERE n.group_id IN $group_ids
             """
             + cursor_query
+            + """
+            RETURN
+            """
             + ENTITY_NODE_RETURN(driver.provider)
             + """
             ORDER BY n.uuid DESC
@@ -428,6 +439,7 @@ class CommunityNode(Node):
         records, _, _ = await driver.execute_query(
             """
             MATCH (c:Community {uuid: $uuid})
+            RETURN
             """
             + COMMUNITY_NODE_RETURN(driver.provider),
             uuid=uuid,
@@ -447,6 +459,7 @@ class CommunityNode(Node):
         records, _, _ = await driver.execute_query(
             """
             MATCH (c:Community) WHERE c.uuid IN $uuids
+            RETURN
             """
             + COMMUNITY_NODE_RETURN(driver.provider),
             uuids=uuids,
@@ -476,6 +489,9 @@ class CommunityNode(Node):
             MATCH (c:Community) WHERE c.group_id IN $group_ids
             """
             + cursor_query
+            + """
+            RETURN
+            """
             + COMMUNITY_NODE_RETURN(driver.provider)
             + """
             ORDER BY c.uuid DESC
@@ -498,10 +514,9 @@ class CommunityNode(Node):
 # Node helpers
 def get_episodic_node_from_record(record: Any, provider: str) -> EpisodicNode:
     created_at = record['created_at']
-    if provider == 'neo4j':
-        created_at = parse_db_date(created_at)
     valid_at = record['valid_at']
     if provider == 'neo4j':
+        created_at = parse_db_date(created_at)
         valid_at = parse_db_date(valid_at)
 
     if created_at is None:

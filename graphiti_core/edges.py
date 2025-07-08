@@ -29,83 +29,15 @@ from graphiti_core.embedder import EmbedderClient
 from graphiti_core.errors import EdgeNotFoundError, GroupsEdgesNotFoundError
 from graphiti_core.helpers import DEFAULT_DATABASE, parse_db_date
 from graphiti_core.models.edges.edge_db_queries import (
+    COMMUNITY_EDGE_RETURN,
     COMMUNITY_EDGE_SAVE,
+    ENTITY_EDGE_RETURN,
     ENTITY_EDGE_SAVE,
     EPISODIC_EDGE_SAVE,
 )
 from graphiti_core.nodes import Node
 
 logger = logging.getLogger(__name__)
-
-
-def ENTITY_EDGE_RETURN(provider: str) -> str:
-    if provider == 'kuzu':
-        return """
-        RETURN
-            e.uuid AS uuid,
-            n.uuid AS source_node_uuid,
-            m.uuid AS target_node_uuid,
-            e.created_at AS created_at,
-            e.name AS name,
-            e.group_id AS group_id,
-            e.fact AS fact,
-            e.episodes AS episodes,
-            e.expired_at AS expired_at,
-            e.valid_at AS valid_at,
-            e.invalid_at AS invalid_at,
-            e AS attributes
-        """
-
-    return """
-    RETURN
-        e.uuid AS uuid,
-        startNode(e).uuid AS source_node_uuid,
-        endNode(e).uuid AS target_node_uuid,
-        e.created_at AS created_at,
-        e.name AS name,
-        e.group_id AS group_id,
-        e.fact AS fact,
-        e.episodes AS episodes,
-        e.expired_at AS expired_at,
-        e.valid_at AS valid_at,
-        e.invalid_at AS invalid_at,
-        properties(e) AS attributes
-    """
-
-def ENTITY_EDGE_RETURN_COLLECT(provider: str) -> str:
-    if provider == 'kuzu':
-        return """
-        RETURN collect({
-            uuid: e.uuid,
-            source_node_uuid: startNode(e).uuid,
-            target_node_uuid: endNode(e).uuid,
-            created_at: e.created_at,
-            name: e.name,
-            group_id: e.group_id,
-            fact: e.fact,
-            episodes: e.episodes,
-            expired_at: e.expired_at,
-            valid_at: e.valid_at,
-            invalid_at: e.invalid_at,
-            attributes: properties(e)
-        })
-        """
-
-    return """
-    RETURN
-        e.uuid AS uuid,
-        startNode(e).uuid AS source_node_uuid,
-        endNode(e).uuid AS target_node_uuid,
-        e.created_at AS created_at,
-        e.name AS name,
-        e.group_id AS group_id,
-        e.fact AS fact,
-        e.episodes AS episodes,
-        e.expired_at AS expired_at,
-        e.valid_at AS valid_at,
-        e.invalid_at AS invalid_at,
-        properties(e) AS attributes
-    """
 
 
 class Edge(BaseModel, ABC):
@@ -147,7 +79,7 @@ class Edge(BaseModel, ABC):
 class EpisodicEdge(Edge):
     async def save(self, driver: GraphDriver):
         result = await driver.execute_query(
-            EPISODIC_EDGE_SAVE,
+            EPISODIC_EDGE_SAVE(driver.provider),
             episode_uuid=self.source_node_uuid,
             entity_uuid=self.target_node_uuid,
             uuid=self.uuid,
@@ -155,6 +87,8 @@ class EpisodicEdge(Edge):
             created_at=self.created_at,
             database_=DEFAULT_DATABASE,
         )
+
+        await driver.print_graph()
 
         logger.debug(f'Saved edge to Graph: {self.uuid}')
 
@@ -177,7 +111,7 @@ class EpisodicEdge(Edge):
             routing_='r',
         )
 
-        edges = [get_episodic_edge_from_record(record) for record in records]
+        edges = [get_episodic_edge_from_record(record, driver.provider) for record in records]
 
         if len(edges) == 0:
             raise EdgeNotFoundError(uuid)
@@ -201,7 +135,7 @@ class EpisodicEdge(Edge):
             routing_='r',
         )
 
-        edges = [get_episodic_edge_from_record(record) for record in records]
+        edges = [get_episodic_edge_from_record(record, driver.provider) for record in records]
 
         if len(edges) == 0:
             raise EdgeNotFoundError(uuids[0])
@@ -241,7 +175,7 @@ class EpisodicEdge(Edge):
             routing_='r',
         )
 
-        edges = [get_episodic_edge_from_record(record) for record in records]
+        edges = [get_episodic_edge_from_record(record, driver.provider) for record in records]
 
         if len(edges) == 0:
             raise GroupsEdgesNotFoundError(group_ids)
@@ -312,11 +246,18 @@ class EntityEdge(Edge):
 
         edge_data.update(self.attributes or {})
 
-        result = await driver.execute_query(
-            ENTITY_EDGE_SAVE,
-            edge_data=edge_data,
-            database_=DEFAULT_DATABASE,
-        )
+        query = ENTITY_EDGE_SAVE(driver.provider)
+        if driver.provider == 'kuzu':
+            result = await driver.execute_query(
+                query,
+                **edge_data,
+            )
+        else:
+            result = await driver.execute_query(
+                query,
+                edge_data=edge_data,
+                database_=DEFAULT_DATABASE,
+            )
 
         logger.debug(f'Saved edge to Graph: {self.uuid}')
 
@@ -327,6 +268,7 @@ class EntityEdge(Edge):
         records, _, _ = await driver.execute_query(
             """
             MATCH (n:Entity)-[e:RELATES_TO {uuid: $uuid}]->(m:Entity)
+            RETURN
             """
             + ENTITY_EDGE_RETURN(driver.provider),
             uuid=uuid,
@@ -334,7 +276,7 @@ class EntityEdge(Edge):
             routing_='r',
         )
 
-        edges = [get_entity_edge_from_record(record) for record in records]
+        edges = [get_entity_edge_from_record(record, driver.provider) for record in records]
 
         if len(edges) == 0:
             raise EdgeNotFoundError(uuid)
@@ -349,6 +291,7 @@ class EntityEdge(Edge):
             """
             MATCH (n:Entity)-[e:RELATES_TO]->(m:Entity)
             WHERE e.uuid IN $uuids
+            RETURN
             """
             + ENTITY_EDGE_RETURN(driver.provider),
             uuids=uuids,
@@ -356,7 +299,7 @@ class EntityEdge(Edge):
             routing_='r',
         )
 
-        edges = [get_entity_edge_from_record(record) for record in records]
+        edges = [get_entity_edge_from_record(record, driver.provider) for record in records]
 
         return edges
 
@@ -377,6 +320,9 @@ class EntityEdge(Edge):
             WHERE e.group_id IN $group_ids
             """
             + cursor_query
+            + """
+            RETURN
+            """
             + ENTITY_EDGE_RETURN(driver.provider)
             + """
             ORDER BY e.uuid DESC 
@@ -389,7 +335,7 @@ class EntityEdge(Edge):
             routing_='r',
         )
 
-        edges = [get_entity_edge_from_record(record) for record in records]
+        edges = [get_entity_edge_from_record(record, driver.provider) for record in records]
 
         if len(edges) == 0:
             raise GroupsEdgesNotFoundError(group_ids)
@@ -400,6 +346,7 @@ class EntityEdge(Edge):
         records, _, _ = await driver.execute_query(
             """
             MATCH (n:Entity {uuid: $node_uuid})-[e:RELATES_TO]-(m:Entity)
+            RETURN
             """
             + ENTITY_EDGE_RETURN(driver.provider),
             node_uuid=node_uuid,
@@ -407,7 +354,7 @@ class EntityEdge(Edge):
             routing_='r',
         )
 
-        edges = [get_entity_edge_from_record(record) for record in records]
+        edges = [get_entity_edge_from_record(record, driver.provider) for record in records]
 
         return edges
 
@@ -415,7 +362,7 @@ class EntityEdge(Edge):
 class CommunityEdge(Edge):
     async def save(self, driver: GraphDriver):
         result = await driver.execute_query(
-            COMMUNITY_EDGE_SAVE,
+            COMMUNITY_EDGE_SAVE(driver.provider),
             community_uuid=self.source_node_uuid,
             entity_uuid=self.target_node_uuid,
             uuid=self.uuid,
@@ -432,20 +379,16 @@ class CommunityEdge(Edge):
     async def get_by_uuid(cls, driver: GraphDriver, uuid: str):
         records, _, _ = await driver.execute_query(
             """
-        MATCH (n:Community)-[e:HAS_MEMBER {uuid: $uuid}]->(m:Entity | Community)
-        RETURN
-            e.uuid As uuid,
-            e.group_id AS group_id,
-            n.uuid AS source_node_uuid, 
-            m.uuid AS target_node_uuid, 
-            e.created_at AS created_at
-        """,
+            MATCH (n:Community)-[e:HAS_MEMBER {uuid: $uuid}]->(m)
+            RETURN
+            """
+            + COMMUNITY_EDGE_RETURN(driver.provider),
             uuid=uuid,
             database_=DEFAULT_DATABASE,
             routing_='r',
         )
 
-        edges = [get_community_edge_from_record(record) for record in records]
+        edges = [get_community_edge_from_record(record, driver.provider) for record in records]
 
         return edges[0]
 
@@ -453,21 +396,17 @@ class CommunityEdge(Edge):
     async def get_by_uuids(cls, driver: GraphDriver, uuids: list[str]):
         records, _, _ = await driver.execute_query(
             """
-        MATCH (n:Community)-[e:HAS_MEMBER]->(m:Entity | Community)
-        WHERE e.uuid IN $uuids
-        RETURN
-            e.uuid As uuid,
-            e.group_id AS group_id,
-            n.uuid AS source_node_uuid, 
-            m.uuid AS target_node_uuid, 
-            e.created_at AS created_at
-        """,
+            MATCH (n:Community)-[e:HAS_MEMBER]->(m)
+            WHERE e.uuid IN $uuids
+            RETURN
+            """
+            + COMMUNITY_EDGE_RETURN(driver.provider),
             uuids=uuids,
             database_=DEFAULT_DATABASE,
             routing_='r',
         )
 
-        edges = [get_community_edge_from_record(record) for record in records]
+        edges = [get_community_edge_from_record(record, driver.provider) for record in records]
 
         return edges
 
@@ -484,19 +423,17 @@ class CommunityEdge(Edge):
 
         records, _, _ = await driver.execute_query(
             """
-        MATCH (n:Community)-[e:HAS_MEMBER]->(m:Entity | Community)
-        WHERE e.group_id IN $group_ids
-        """
+            MATCH (n:Community)-[e:HAS_MEMBER]->(m)
+            WHERE e.group_id IN $group_ids
+            """
             + cursor_query
             + """
-        RETURN
-            e.uuid As uuid,
-            e.group_id AS group_id,
-            n.uuid AS source_node_uuid, 
-            m.uuid AS target_node_uuid, 
-            e.created_at AS created_at
-        ORDER BY e.uuid DESC
-        """
+            RETURN
+            """
+            + COMMUNITY_EDGE_RETURN(driver.provider)
+            + """
+            ORDER BY e.uuid DESC
+            """
             + limit_query,
             group_ids=group_ids,
             uuid=uuid_cursor,
@@ -505,23 +442,37 @@ class CommunityEdge(Edge):
             routing_='r',
         )
 
-        edges = [get_community_edge_from_record(record) for record in records]
+        edges = [get_community_edge_from_record(record, driver.provider) for record in records]
 
         return edges
 
 
 # Edge helpers
-def get_episodic_edge_from_record(record: Any) -> EpisodicEdge:
+def get_episodic_edge_from_record(record: Any, provider: str) -> EpisodicEdge:
+    created_at = record['created_at']
+    if provider == 'neo4j':
+        created_at = parse_db_date(created_at)
+
     return EpisodicEdge(
         uuid=record['uuid'],
         group_id=record['group_id'],
         source_node_uuid=record['source_node_uuid'],
         target_node_uuid=record['target_node_uuid'],
-        created_at=parse_db_date(record['created_at']),  # type: ignore
+        created_at=created_at,  # type: ignore
     )
 
 
-def get_entity_edge_from_record(record: Any) -> EntityEdge:
+def get_entity_edge_from_record(record: Any, provider: str) -> EntityEdge:
+    created_at = record['created_at']
+    expired_at = record['expired_at']
+    valid_at = record['valid_at']
+    invalid_at = record['invalid_at']
+    if provider == 'neo4j':
+        created_at = parse_db_date(created_at)
+        expired_at = parse_db_date(expired_at)
+        valid_at = parse_db_date(valid_at)
+        invalid_at = parse_db_date(invalid_at)
+
     edge = EntityEdge(
         uuid=record['uuid'],
         source_node_uuid=record['source_node_uuid'],
@@ -530,10 +481,10 @@ def get_entity_edge_from_record(record: Any) -> EntityEdge:
         name=record['name'],
         group_id=record['group_id'],
         episodes=record['episodes'],
-        created_at=parse_db_date(record['created_at']),  # type: ignore
-        expired_at=parse_db_date(record['expired_at']),
-        valid_at=parse_db_date(record['valid_at']),
-        invalid_at=parse_db_date(record['invalid_at']),
+        created_at=created_at,  # type: ignore
+        expired_at=expired_at,
+        valid_at=valid_at,
+        invalid_at=invalid_at,
         attributes=record['attributes'],
     )
 
@@ -552,13 +503,17 @@ def get_entity_edge_from_record(record: Any) -> EntityEdge:
     return edge
 
 
-def get_community_edge_from_record(record: Any):
+def get_community_edge_from_record(record: Any, provider: str):
+    created_at = record['created_at']
+    if provider == 'neo4j':
+        created_at = parse_db_date(created_at)
+
     return CommunityEdge(
         uuid=record['uuid'],
         group_id=record['group_id'],
         source_node_uuid=record['source_node_uuid'],
         target_node_uuid=record['target_node_uuid'],
-        created_at=parse_db_date(record['created_at']),  # type: ignore
+        created_at=created_at,  # type: ignore
     )
 
 

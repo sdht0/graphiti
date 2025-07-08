@@ -103,8 +103,10 @@ async def get_mentioned_nodes(
     episode_uuids = [episode.uuid for episode in episodes]
 
     query = """
-        MATCH (episode:Episodic)-[:MENTIONS]->(n:Entity) WHERE episode.uuid IN $uuids
-        """ + ENTITY_NODE_RETURN(driver.provider).replace('RETURN', 'RETURN DISTINCT')
+        MATCH (episode:Episodic)-[:MENTIONS]->(n:Entity)
+        WHERE episode.uuid IN $uuids
+        RETURN DISTINCT
+        """ + ENTITY_NODE_RETURN(driver.provider)
 
     records, _, _ = await driver.execute_query(
         query,
@@ -124,8 +126,10 @@ async def get_communities_by_nodes(
     node_uuids = [node.uuid for node in nodes]
 
     query = """
-    MATCH (c:Community)-[:HAS_MEMBER]->(n:Entity) WHERE n.uuid IN $uuids
-    """ + COMMUNITY_NODE_RETURN(driver.provider).replace('RETURN', 'RETURN DISTINCT')
+    MATCH (c:Community)-[:HAS_MEMBER]->(n:Entity)
+    WHERE n.uuid IN $uuids
+    RETURN DISTINCT
+    """ + COMMUNITY_NODE_RETURN(driver.provider)
 
     records, _, _ = await driver.execute_query(
         query,
@@ -180,7 +184,7 @@ async def edge_fulltext_search(
         routing_='r',
     )
 
-    edges = [get_entity_edge_from_record(record) for record in records]
+    edges = [get_entity_edge_from_record(record, driver.provider) for record in records]
 
     return edges
 
@@ -246,7 +250,7 @@ async def edge_similarity_search(
         routing_='r',
     )
 
-    edges = [get_entity_edge_from_record(record) for record in records]
+    edges = [get_entity_edge_from_record(record, driver.provider) for record in records]
 
     return edges
 
@@ -273,7 +277,10 @@ async def edge_bfs_search(
         WHERE r.uuid = rel.uuid
         """
         + filter_query
-        + ENTITY_EDGE_RETURN(driver.provider).replace('RETURN', 'RETURN DISTINCT')
+        + """
+        RETURN DISTINCT
+        """
+        + ENTITY_EDGE_RETURN(driver.provider)
         + """
         LIMIT $limit
         """
@@ -289,7 +296,7 @@ async def edge_bfs_search(
         routing_='r',
     )
 
-    edges = [get_entity_edge_from_record(record) for record in records]
+    edges = [get_entity_edge_from_record(record, driver.provider) for record in records]
 
     return edges
 
@@ -316,6 +323,9 @@ async def node_fulltext_search(
             WHERE n:Entity
         """
         + filter_query
+        + """
+        RETURN
+        """
         + ENTITY_NODE_RETURN(driver.provider)
         + """
         ORDER BY score DESC
@@ -366,7 +376,9 @@ async def node_similarity_search(
         WITH n, """
         + get_vector_cosine_func_query('n.name_embedding', '$search_vector', driver.provider)
         + """ AS score
-        WHERE score > $min_score"""
+        WHERE score > $min_score
+        RETURN
+        """
         + ENTITY_NODE_RETURN(driver.provider)
         + """
         ORDER BY score DESC
@@ -410,6 +422,9 @@ async def node_bfs_search(
         WHERE n.group_id = origin.group_id
         """
         + filter_query
+        + """
+        RETURN
+        """
         + ENTITY_NODE_RETURN(driver.provider)
         + """
         LIMIT $limit
@@ -490,6 +505,7 @@ async def community_fulltext_search(
         get_nodes_query(driver.provider, 'community_name', '$query')
         + """
         YIELD node AS c, score
+        RETURN
         """
         + COMMUNITY_NODE_RETURN(driver.provider)
         + """
@@ -538,6 +554,7 @@ async def community_similarity_search(
         + """
         AS score
         WHERE score > $min_score
+        RETURN
         """
         + COMMUNITY_NODE_RETURN(driver.provider)
         + """
@@ -789,7 +806,7 @@ async def get_relevant_edges(
 
     relevant_edges_dict: dict[str, list[EntityEdge]] = {
         result['search_edge_uuid']: [
-            get_entity_edge_from_record(record) for record in result['matches']
+            get_entity_edge_from_record(record, driver.provider) for record in result['matches']
         ]
         for result in results
     }
@@ -862,7 +879,7 @@ async def get_edge_invalidation_candidates(
     )
     invalidation_edges_dict: dict[str, list[EntityEdge]] = {
         result['search_edge_uuid']: [
-            get_entity_edge_from_record(record) for record in result['matches']
+            get_entity_edge_from_record(record, driver.provider) for record in result['matches']
         ]
         for result in results
     }
