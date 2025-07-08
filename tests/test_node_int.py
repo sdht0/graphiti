@@ -80,12 +80,15 @@ if HAS_FALKORDB:
     drivers.append('falkordb')
 
 
+group_id = f'test_group_{str(uuid4())}'
+
+
 @pytest.fixture
 def sample_entity_node():
     return EntityNode(
         uuid=str(uuid4()),
         name='Test Entity',
-        group_id='test_group',
+        group_id=group_id,
         labels=[],
         name_embedding=[0.5] * 1024,
         summary='Entity Summary',
@@ -97,7 +100,7 @@ def sample_episodic_node():
     return EpisodicNode(
         uuid=str(uuid4()),
         name='Episode 1',
-        group_id='test_group',
+        group_id=group_id,
         source=EpisodeType.text,
         source_description='Test source',
         content='Some content here',
@@ -111,7 +114,7 @@ def sample_community_node():
         uuid=str(uuid4()),
         name='Community A',
         name_embedding=[0.5] * 1024,
-        group_id='test_group',
+        group_id=group_id,
         summary='Community summary',
     )
 
@@ -122,32 +125,42 @@ def sample_community_node():
     drivers,
     ids=drivers,
 )
-async def test_entity_node_save_get_and_delete(sample_entity_node, driver):
+async def test_entity_node(sample_entity_node, driver):
     driver = get_driver(driver)
+    uuid = sample_entity_node.uuid
+
+    node_count = await get_node_count(driver, uuid)
+    assert node_count == 0
 
     await sample_entity_node.save(driver)
+
+    node_count = await get_node_count(driver, uuid)
+    assert node_count == 1
 
     retrieved = await EntityNode.get_by_uuid(driver, sample_entity_node.uuid)
     assert retrieved.uuid == sample_entity_node.uuid
     assert retrieved.name == 'Test Entity'
-    assert retrieved.group_id == 'test_group'
+    assert retrieved.group_id == group_id
 
     retrieved = await EntityNode.get_by_uuids(driver, [sample_entity_node.uuid])
     assert retrieved[0].uuid == sample_entity_node.uuid
     assert retrieved[0].name == 'Test Entity'
-    assert retrieved[0].group_id == 'test_group'
+    assert retrieved[0].group_id == group_id
 
-    retrieved = await EntityNode.get_by_group_ids(driver, ['test_group'], limit=2)
+    retrieved = await EntityNode.get_by_group_ids(driver, [group_id], limit=2)
     assert len(retrieved) == 1
     assert retrieved[0].uuid == sample_entity_node.uuid
     assert retrieved[0].name == 'Test Entity'
-    assert retrieved[0].group_id == 'test_group'
+    assert retrieved[0].group_id == group_id
 
     await sample_entity_node.load_name_embedding(driver)
     assert sample_entity_node.name_embedding == [0.5] * 1024
 
     await sample_entity_node.delete(driver)
 
+    node_count = await get_node_count(driver, uuid)
+    assert node_count == 0
+
     await driver.close()
 
 
@@ -157,30 +170,40 @@ async def test_entity_node_save_get_and_delete(sample_entity_node, driver):
     drivers,
     ids=drivers,
 )
-async def test_community_node_save_get_and_delete(sample_community_node, driver):
+async def test_community_node(sample_community_node, driver):
     driver = get_driver(driver)
+    uuid = sample_community_node.uuid
+
+    node_count = await get_node_count(driver, uuid)
+    assert node_count == 0
 
     await sample_community_node.save(driver)
+
+    node_count = await get_node_count(driver, uuid)
+    assert node_count == 1
 
     retrieved = await CommunityNode.get_by_uuid(driver, sample_community_node.uuid)
     assert retrieved.uuid == sample_community_node.uuid
     assert retrieved.name == 'Community A'
-    assert retrieved.group_id == 'test_group'
+    assert retrieved.group_id == group_id
     assert retrieved.summary == 'Community summary'
 
     retrieved = await CommunityNode.get_by_uuids(driver, [sample_community_node.uuid])
     assert retrieved[0].uuid == sample_community_node.uuid
     assert retrieved[0].name == 'Community A'
-    assert retrieved[0].group_id == 'test_group'
+    assert retrieved[0].group_id == group_id
     assert retrieved[0].summary == 'Community summary'
 
-    retrieved = await CommunityNode.get_by_group_ids(driver, ['test_group'], limit=2)
+    retrieved = await CommunityNode.get_by_group_ids(driver, [group_id], limit=2)
     assert len(retrieved) == 1
     assert retrieved[0].uuid == sample_community_node.uuid
     assert retrieved[0].name == 'Community A'
-    assert retrieved[0].group_id == 'test_group'
+    assert retrieved[0].group_id == group_id
 
     await sample_community_node.delete(driver)
+
+    node_count = await get_node_count(driver, uuid)
+    assert node_count == 0
 
     await driver.close()
 
@@ -191,15 +214,22 @@ async def test_community_node_save_get_and_delete(sample_community_node, driver)
     drivers,
     ids=drivers,
 )
-async def test_episodic_node_save_get_and_delete(sample_episodic_node, driver):
+async def test_episodic_node(sample_episodic_node, driver):
     driver = get_driver(driver)
+    uuid = sample_episodic_node.uuid
+
+    node_count = await get_node_count(driver, uuid)
+    assert node_count == 0
 
     await sample_episodic_node.save(driver)
+
+    node_count = await get_node_count(driver, uuid)
+    assert node_count == 1
 
     retrieved = await EpisodicNode.get_by_uuid(driver, sample_episodic_node.uuid)
     assert retrieved.uuid == sample_episodic_node.uuid
     assert retrieved.name == 'Episode 1'
-    assert retrieved.group_id == 'test_group'
+    assert retrieved.group_id == group_id
     assert retrieved.source == EpisodeType.text
     assert retrieved.source_description == 'Test source'
     assert retrieved.content == 'Some content here'
@@ -208,17 +238,17 @@ async def test_episodic_node_save_get_and_delete(sample_episodic_node, driver):
     retrieved = await EpisodicNode.get_by_uuids(driver, [sample_episodic_node.uuid])
     assert retrieved[0].uuid == sample_episodic_node.uuid
     assert retrieved[0].name == 'Episode 1'
-    assert retrieved[0].group_id == 'test_group'
+    assert retrieved[0].group_id == group_id
     assert retrieved[0].source == EpisodeType.text
     assert retrieved[0].source_description == 'Test source'
     assert retrieved[0].content == 'Some content here'
     assert retrieved[0].valid_at == sample_episodic_node.valid_at
 
-    retrieved = await EpisodicNode.get_by_group_ids(driver, ['test_group'], limit=2)
+    retrieved = await EpisodicNode.get_by_group_ids(driver, [group_id], limit=2)
     assert len(retrieved) == 1
     assert retrieved[0].uuid == sample_episodic_node.uuid
     assert retrieved[0].name == 'Episode 1'
-    assert retrieved[0].group_id == 'test_group'
+    assert retrieved[0].group_id == group_id
     assert retrieved[0].source == EpisodeType.text
     assert retrieved[0].source_description == 'Test source'
     assert retrieved[0].content == 'Some content here'
@@ -226,4 +256,18 @@ async def test_episodic_node_save_get_and_delete(sample_episodic_node, driver):
 
     await sample_episodic_node.delete(driver)
 
+    node_count = await get_node_count(driver, uuid)
+    assert node_count == 0
+
     await driver.close()
+
+
+async def get_node_count(driver: GraphDriver, uuid: str):
+    result, _, _ = await driver.execute_query(
+        """
+        MATCH (n {uuid: $uuid})
+        RETURN COUNT(n) as count
+        """,
+        uuid=uuid,
+    )
+    return int(result[0]['count'])

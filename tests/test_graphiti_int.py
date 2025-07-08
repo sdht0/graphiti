@@ -25,6 +25,7 @@ from dotenv import load_dotenv
 from graphiti_core.driver.driver import GraphDriver
 from graphiti_core.driver.kuzu_driver import KuzuDriver
 from graphiti_core.edges import EntityEdge, EpisodicEdge
+from graphiti_core.embedder.openai import OpenAIEmbedder
 from graphiti_core.graphiti import Graphiti
 from graphiti_core.helpers import semaphore_gather
 from graphiti_core.nodes import EntityNode, EpisodeType, EpisodicNode
@@ -130,87 +131,3 @@ async def test_graphiti_init(driver):
     logger.info(pretty_results)
 
     await graphiti.close()
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    'driver',
-    drivers,
-    ids=drivers,
-)
-async def test_graph_integration(driver):
-    graph_driver = get_driver(driver)
-    client = Graphiti(graph_driver=graph_driver)
-    embedder = client.embedder
-
-    now = datetime.now(timezone.utc)
-    episode = EpisodicNode(
-        name='test_episode',
-        labels=[],
-        created_at=now,
-        valid_at=now,
-        source=EpisodeType.message,
-        source_description='conversation message',
-        content='Alice likes Bob',
-        entity_edges=[],
-        group_id='test_group_id',
-    )
-
-    alice_node = EntityNode(
-        name='Alice',
-        labels=[],
-        created_at=now,
-        summary='Alice summary',
-        group_id='test_group_id',
-    )
-    await alice_node.generate_name_embedding(embedder)
-
-    bob_node = EntityNode(
-        name='Bob', labels=[], created_at=now, summary='Bob summary', group_id='test_group_id'
-    )
-    await bob_node.generate_name_embedding(embedder)
-
-    episodic_edge_1 = EpisodicEdge(
-        source_node_uuid=episode.uuid,
-        target_node_uuid=alice_node.uuid,
-        created_at=now,
-        group_id='test_group_id',
-    )
-
-    episodic_edge_2 = EpisodicEdge(
-        source_node_uuid=episode.uuid,
-        target_node_uuid=bob_node.uuid,
-        created_at=now,
-        group_id='test_group_id',
-    )
-
-    entity_edge = EntityEdge(
-        source_node_uuid=alice_node.uuid,
-        target_node_uuid=bob_node.uuid,
-        created_at=now,
-        name='likes',
-        fact='Alice likes Bob',
-        episodes=[],
-        expired_at=now,
-        valid_at=now,
-        invalid_at=now,
-        group_id='test_group_id',
-    )
-    await entity_edge.generate_embedding(embedder)
-
-    nodes = [episode, alice_node, bob_node]
-    edges = [episodic_edge_1, episodic_edge_2, entity_edge]
-
-    # test save
-    await semaphore_gather(*[node.save(graph_driver) for node in nodes])
-    await semaphore_gather(*[edge.save(graph_driver) for edge in edges])
-
-    # test get
-    assert await EpisodicNode.get_by_uuid(graph_driver, episode.uuid) is not None
-    assert await EntityNode.get_by_uuid(graph_driver, alice_node.uuid) is not None
-    assert await EpisodicEdge.get_by_uuid(graph_driver, episodic_edge_1.uuid) is not None
-    assert await EntityEdge.get_by_uuid(graph_driver, entity_edge.uuid) is not None
-
-    # test delete
-    await semaphore_gather(*[node.delete(graph_driver) for node in nodes])
-    await semaphore_gather(*[edge.delete(graph_driver) for edge in edges])
