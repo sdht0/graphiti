@@ -46,6 +46,9 @@ class Neo4jDriver(GraphDriver):
         params = kwargs.pop('params', None)
         result = await self.client.execute_query(cypher_query_, parameters_=params, **kwargs)
 
+        print('neo4j: query = ', cypher_query_)
+        print('neo4j: params = ', params)
+
         return result
 
     async def print_graph(self):

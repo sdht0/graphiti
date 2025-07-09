@@ -15,50 +15,50 @@ limitations under the License.
 """
 
 KUZU_NODE_SCHEMA = """
-CREATE NODE TABLE IF NOT EXISTS Episodic (
-    uuid STRING PRIMARY KEY,
-    name STRING,
-    group_id STRING,
-    source_description STRING,
-    source STRING,
-    content STRING,
-    entity_edges STRING[],
-    created_at TIMESTAMP,
-    valid_at TIMESTAMP
-);
-CREATE NODE TABLE IF NOT EXISTS Entity (
-    uuid STRING PRIMARY KEY,
-    labels STRING[],
-    name STRING,
-    name_embedding FLOAT[],
-    group_id STRING,
-    summary STRING,
-    created_at TIMESTAMP
-);
-CREATE NODE TABLE IF NOT EXISTS Community (
-    uuid STRING PRIMARY KEY,
-    name STRING,
-    name_embedding FLOAT[],
-    group_id STRING,
-    summary STRING,
-    created_at TIMESTAMP
-);
+    CREATE NODE TABLE IF NOT EXISTS Episodic (
+        uuid STRING PRIMARY KEY,
+        name STRING,
+        group_id STRING,
+        source_description STRING,
+        source STRING,
+        content STRING,
+        entity_edges STRING[],
+        created_at TIMESTAMP,
+        valid_at TIMESTAMP
+    );
+    CREATE NODE TABLE IF NOT EXISTS Entity (
+        uuid STRING PRIMARY KEY,
+        labels STRING[],
+        name STRING,
+        name_embedding FLOAT[],
+        group_id STRING,
+        summary STRING,
+        created_at TIMESTAMP
+    );
+    CREATE NODE TABLE IF NOT EXISTS Community (
+        uuid STRING PRIMARY KEY,
+        name STRING,
+        name_embedding FLOAT[],
+        group_id STRING,
+        summary STRING,
+        created_at TIMESTAMP
+    );
 """
 
 
 def EPISODIC_NODE_SAVE(_provider: str) -> str:
     return """
-    MERGE (n:Episodic {uuid: $uuid})
-    SET
-        n.name = $name,
-        n.group_id = $group_id,
-        n.source_description = $source_description,
-        n.source = $source,
-        n.content = $content,
-        n.entity_edges = $entity_edges,
-        n.created_at = $created_at,
-        n.valid_at = $valid_at
-    RETURN n.uuid AS uuid
+        MERGE (n:Episodic {uuid: $uuid})
+        SET
+            n.name = $name,
+            n.group_id = $group_id,
+            n.source_description = $source_description,
+            n.source = $source,
+            n.content = $content,
+            n.entity_edges = $entity_edges,
+            n.created_at = $created_at,
+            n.valid_at = $valid_at
+        RETURN n.uuid AS uuid
     """
 
 
@@ -90,24 +90,24 @@ def EPISODIC_NODE_RETURN(_provider: str) -> str:
 def ENTITY_NODE_SAVE(provider: str) -> str:
     if provider == 'kuzu':
         return """
-        MERGE (n:Entity {uuid: $uuid})
-        SET
-            n.labels = $labels,
-            n.name = $name,
-            n.name_embedding = $name_embedding,
-            n.group_id = $group_id,
-            n.summary = $summary,
-            n.created_at = $created_at
-        WITH n
-        RETURN n.uuid AS uuid
+            MERGE (n:Entity {uuid: $uuid})
+            SET
+                n.labels = $labels,
+                n.name = $name,
+                n.name_embedding = $name_embedding,
+                n.group_id = $group_id,
+                n.summary = $summary,
+                n.created_at = $created_at
+            WITH n
+            RETURN n.uuid AS uuid
         """
 
     return """
-    MERGE (n:Entity {uuid: $entity_data.uuid})
-    SET n:$($labels)
-    SET n = $entity_data
-    WITH n CALL db.create.setNodeVectorProperty(n, "name_embedding", $entity_data.name_embedding)
-    RETURN n.uuid AS uuid
+        MERGE (n:Entity {uuid: $entity_data.uuid})
+        SET n:$($labels)
+        SET n = $entity_data
+        WITH n CALL db.create.setNodeVectorProperty(n, "name_embedding", $entity_data.name_embedding)
+        RETURN n.uuid AS uuid
     """
 
 
@@ -119,7 +119,6 @@ ENTITY_NODE_SAVE_BULK = """
     WITH n, node CALL db.create.setNodeVectorProperty(n, "name_embedding", node.name_embedding)
     RETURN n.uuid AS uuid
 """
-
 
 def ENTITY_NODE_RETURN(provider: str) -> str:
     if provider == 'kuzu':
@@ -133,27 +132,26 @@ def ENTITY_NODE_RETURN(provider: str) -> str:
         labels(n) AS labels
     """
 
-
 def COMMUNITY_NODE_SAVE(provider: str) -> str:
     if provider == 'kuzu':
         return """
-        MERGE (n:Community {uuid: $uuid})
-        SET
-            n.name = $name,
-            n.name_embedding = $name_embedding,
-            n.group_id = $group_id,
-            n.summary = $summary,
-            n.created_at = $created_at
-        WITH n
-        RETURN n.uuid AS uuid
+            MERGE (n:Community {uuid: $uuid})
+            SET
+                n.name = $name,
+                n.name_embedding = $name_embedding,
+                n.group_id = $group_id,
+                n.summary = $summary,
+                n.created_at = $created_at
+            WITH n
+            RETURN n.uuid AS uuid
         """
 
     return """
-    MERGE (n:Community {uuid: $uuid})
-    SET n = {uuid: $uuid, name: $name, group_id: $group_id, summary: $summary, created_at: $created_at}
-    WITH n CALL db.create.setNodeVectorProperty(n, "name_embedding", $name_embedding)
-    RETURN n.uuid AS uuid
-"""
+        MERGE (n:Community {uuid: $uuid})
+        SET n = {uuid: $uuid, name: $name, group_id: $group_id, summary: $summary, created_at: $created_at}
+        WITH n CALL db.create.setNodeVectorProperty(n, "name_embedding", $name_embedding)
+        RETURN n.uuid AS uuid
+    """
 
 
 def COMMUNITY_NODE_RETURN(_provider: str) -> str:

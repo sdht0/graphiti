@@ -161,11 +161,12 @@ async def edge_fulltext_search(
         get_relationships_query('edge_name_and_fact', db_type=driver.provider)
         + """
         YIELD relationship AS rel, score
-        MATCH (n:Entity)-[r:RELATES_TO]->(m:Entity)
-        WHERE r.group_id IN $group_ids """
+        MATCH (n:Entity)-[e:RELATES_TO]->(m:Entity)
+        WHERE e.group_id IN $group_ids """
         + filter_query
         + """
-        WITH r, score, startNode(r) AS n, endNode(r) AS m
+        WITH e, score, startNode(e) AS n, endNode(e) AS m
+        RETURN
         """
         + ENTITY_EDGE_RETURN(driver.provider)
         + """
@@ -205,9 +206,9 @@ async def edge_similarity_search(
     filter_query, filter_params = edge_search_filter_query_constructor(search_filter)
     query_params.update(filter_params)
 
-    group_filter_query: LiteralString = 'WHERE r.group_id IS NOT NULL'
+    group_filter_query: LiteralString = 'WHERE e.group_id IS NOT NULL'
     if group_ids is not None:
-        group_filter_query += '\nAND r.group_id IN $group_ids'
+        group_filter_query += '\nAND e.group_id IN $group_ids'
         query_params['group_ids'] = group_ids
         query_params['source_node_uuid'] = source_node_uuid
         query_params['target_node_uuid'] = target_node_uuid
@@ -221,15 +222,16 @@ async def edge_similarity_search(
     query = (
         RUNTIME_QUERY(driver.provider)
         + """
-        MATCH (n:Entity)-[r:RELATES_TO]->(m:Entity)
+        MATCH (n:Entity)-[e:RELATES_TO]->(m:Entity)
         """
         + group_filter_query
         + filter_query
         + """
-        WITH DISTINCT r, """
-        + get_vector_cosine_func_query('r.fact_embedding', '$search_vector', driver.provider)
+        WITH DISTINCT e, """
+        + get_vector_cosine_func_query('e.fact_embedding', '$search_vector', driver.provider)
         + """ AS score
         WHERE score > $min_score
+        RETURN
         """
         + ENTITY_EDGE_RETURN(driver.provider)
         + """
@@ -273,8 +275,8 @@ async def edge_bfs_search(
         UNWIND $bfs_origin_node_uuids AS origin_uuid
         MATCH path = (origin:Entity|Episodic {uuid: origin_uuid})-[:RELATES_TO|MENTIONS]->{1,3}(n:Entity)
         UNWIND relationships(path) AS rel
-        MATCH (n:Entity)-[r:RELATES_TO]-(m:Entity)
-        WHERE r.uuid = rel.uuid
+        MATCH (n:Entity)-[e:RELATES_TO]-(m:Entity)
+        WHERE e.uuid = rel.uuid
         """
         + filter_query
         + """
@@ -846,6 +848,7 @@ async def get_edge_invalidation_candidates(
         WHERE score > $min_score
         WITH edge, e, score
         ORDER BY score DESC
+        RETURN
         """
         + ENTITY_EDGE_RETURN(driver.provider)
         + """

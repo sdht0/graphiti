@@ -15,53 +15,55 @@ limitations under the License.
 """
 
 KUZU_EDGE_SCHEMA = """
-CREATE REL TABLE IF NOT EXISTS MENTIONS(
-    FROM Episodic TO Entity,
-    uuid STRING PRIMARY KEY,
-    group_id STRING,
-    created_at TIMESTAMP,
-    fact_embedding FLOAT[]
-);
-CREATE REL TABLE IF NOT EXISTS RELATES_TO(
-    FROM Entity TO Entity,
-    uuid STRING PRIMARY KEY,
-    group_id STRING,
-    name STRING,
-    fact STRING,
-    fact_embedding FLOAT[],
-    episodes STRING[],
-    created_at TIMESTAMP,
-    expired_at TIMESTAMP,
-    valid_at TIMESTAMP,
-    invalid_at TIMESTAMP
-);
-CREATE REL TABLE IF NOT EXISTS HAS_MEMBER(
-    FROM Community TO Entity,
-    FROM Community TO Community,
-    uuid STRING PRIMARY KEY,
-    group_id STRING,
-    created_at TIMESTAMP
-);
+    CREATE REL TABLE IF NOT EXISTS MENTIONS(
+        FROM Episodic TO Entity,
+        uuid STRING PRIMARY KEY,
+        group_id STRING,
+        created_at TIMESTAMP,
+        fact_embedding FLOAT[]
+    );
+    CREATE REL TABLE IF NOT EXISTS RELATES_TO(
+        FROM Entity TO Entity,
+        uuid STRING PRIMARY KEY,
+        group_id STRING,
+        name STRING,
+        fact STRING,
+        fact_embedding FLOAT[],
+        episodes STRING[],
+        created_at TIMESTAMP,
+        expired_at TIMESTAMP,
+        valid_at TIMESTAMP,
+        invalid_at TIMESTAMP
+    );
+    CREATE REL TABLE IF NOT EXISTS HAS_MEMBER(
+        FROM Community TO Entity,
+        FROM Community TO Community,
+        uuid STRING PRIMARY KEY,
+        group_id STRING,
+        created_at TIMESTAMP
+    );
 """
 
 def EPISODIC_EDGE_SAVE(provider: str) -> str:
     if provider == 'kuzu':
         return """
+            MATCH (episode:Episodic {uuid: $episode_uuid}) 
+            MATCH (node:Entity {uuid: $entity_uuid}) 
+            MERGE (episode)-[r:MENTIONS {uuid: $uuid}]->(node)
+            SET
+                r.uuid = $uuid,
+                r.group_id = $group_id,
+                r.created_at = $created_at
+            RETURN r.uuid AS uuid
+        """
+
+    return """
         MATCH (episode:Episodic {uuid: $episode_uuid}) 
         MATCH (node:Entity {uuid: $entity_uuid}) 
         MERGE (episode)-[r:MENTIONS {uuid: $uuid}]->(node)
-        SET
-            r.uuid = $uuid,
-            r.group_id = $group_id,
-            r.created_at = $created_at
-        RETURN r.uuid AS uuid"""
-
-    return """
-    MATCH (episode:Episodic {uuid: $episode_uuid}) 
-    MATCH (node:Entity {uuid: $entity_uuid}) 
-    MERGE (episode)-[r:MENTIONS {uuid: $uuid}]->(node)
-    SET r = {uuid: $uuid, group_id: $group_id, created_at: $created_at}
-    RETURN r.uuid AS uuid"""
+        SET r = {uuid: $uuid, group_id: $group_id, created_at: $created_at}
+        RETURN r.uuid AS uuid
+    """
 
 EPISODIC_EDGE_SAVE_BULK = """
     UNWIND $episodic_edges AS edge
@@ -107,20 +109,20 @@ def ENTITY_EDGE_RETURN(provider: str) -> str:
 def ENTITY_EDGE_RETURN_COLLECT(provider: str) -> str:
     if provider == 'kuzu':
         return """
-        collect({
-            uuid: e.uuid,
-            source_node_uuid: startNode(e).uuid,
-            target_node_uuid: endNode(e).uuid,
-            created_at: e.created_at,
-            name: e.name,
-            group_id: e.group_id,
-            fact: e.fact,
-            episodes: e.episodes,
-            expired_at: e.expired_at,
-            valid_at: e.valid_at,
-            invalid_at: e.invalid_at,
-            attributes: properties(e)
-        })
+            collect({
+                uuid: e.uuid,
+                source_node_uuid: startNode(e).uuid,
+                target_node_uuid: endNode(e).uuid,
+                created_at: e.created_at,
+                name: e.name,
+                group_id: e.group_id,
+                fact: e.fact,
+                episodes: e.episodes,
+                expired_at: e.expired_at,
+                valid_at: e.valid_at,
+                invalid_at: e.invalid_at,
+                attributes: properties(e)
+            })
         """
 
     return """
@@ -141,29 +143,29 @@ def ENTITY_EDGE_RETURN_COLLECT(provider: str) -> str:
 def ENTITY_EDGE_SAVE(provider: str) -> str:
     if provider == 'kuzu':
         return """
-        MATCH (source:Entity {uuid: $source_uuid})
-        MATCH (target:Entity {uuid: $target_uuid})
-        MERGE (source)-[r:RELATES_TO {uuid: $uuid}]->(target)
-        SET
-            r.name = $name,
-            r.group_id = $group_id,
-            r.fact = $fact,
-            r.fact_embedding = $fact_embedding,
-            r.episodes = $episodes,
-            r.created_at = $created_at,
-            r.expired_at = $expired_at,
-            r.valid_at = $valid_at,
-            r.invalid_at = $invalid_at
-        RETURN r.uuid AS uuid
+            MATCH (source:Entity {uuid: $source_uuid})
+            MATCH (target:Entity {uuid: $target_uuid})
+            MERGE (source)-[r:RELATES_TO {uuid: $uuid}]->(target)
+            SET
+                r.name = $name,
+                r.group_id = $group_id,
+                r.fact = $fact,
+                r.fact_embedding = $fact_embedding,
+                r.episodes = $episodes,
+                r.created_at = $created_at,
+                r.expired_at = $expired_at,
+                r.valid_at = $valid_at,
+                r.invalid_at = $invalid_at
+            RETURN r.uuid AS uuid
         """
 
     return """
-    MATCH (source:Entity {uuid: $edge_data.source_uuid})
-    MATCH (target:Entity {uuid: $edge_data.target_uuid})
-    MERGE (source)-[r:RELATES_TO {uuid: $edge_data.uuid}]->(target)
-    SET r = $edge_data
-    WITH r CALL db.create.setRelationshipVectorProperty(r, "fact_embedding", $edge_data.fact_embedding)
-    RETURN r.uuid AS uuid
+        MATCH (source:Entity {uuid: $edge_data.source_uuid})
+        MATCH (target:Entity {uuid: $edge_data.target_uuid})
+        MERGE (source)-[r:RELATES_TO {uuid: $edge_data.uuid}]->(target)
+        SET r = $edge_data
+        WITH r CALL db.create.setRelationshipVectorProperty(r, "fact_embedding", $edge_data.fact_embedding)
+        RETURN r.uuid AS uuid
     """
 
 ENTITY_EDGE_SAVE_BULK = """
@@ -178,11 +180,11 @@ ENTITY_EDGE_SAVE_BULK = """
 
 def COMMUNITY_EDGE_RETURN(_provider: str) -> str:
     return """
-    e.uuid As uuid,
-    e.group_id AS group_id,
-    n.uuid AS source_node_uuid, 
-    m.uuid AS target_node_uuid, 
-    e.created_at AS created_at
+        e.uuid As uuid,
+        e.group_id AS group_id,
+        n.uuid AS source_node_uuid, 
+        m.uuid AS target_node_uuid, 
+        e.created_at AS created_at
     """
 
 def COMMUNITY_EDGE_SAVE(provider: str) -> str:
