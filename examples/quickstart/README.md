@@ -47,6 +47,8 @@ export DEFAULT_DATABASE=default_db
 
 # Optional FalkorDB connection parameters (defaults shown)
 export FALKORDB_URI=falkor://localhost:6379
+
+# To use a different database, modify the driver constructor in the script
 ```
 
 3. Run the example:
@@ -79,6 +81,23 @@ After running this example, you can:
 3. Experiment with different center nodes for graph-distance-based reranking
 4. Try other predefined search recipes from `graphiti_core.search.search_config_recipes`
 5. Explore the more advanced examples in the other directories
+
+## Troubleshooting
+
+### "Graph not found: default_db" Error
+
+If you encounter the error `Neo.ClientError.Database.DatabaseNotFound: Graph not found: default_db`, this occurs when the driver is trying to connect to a database that doesn't exist.
+
+**Solution:**
+The Neo4j driver defaults to using `neo4j` as the database name. If you need to use a different database, modify the driver constructor in the script:
+
+```python
+# In quickstart_neo4j.py, change:
+driver = Neo4jDriver(uri=neo4j_uri, user=neo4j_user, password=neo4j_password)
+
+# To specify a different database:
+driver = Neo4jDriver(uri=neo4j_uri, user=neo4j_user, password=neo4j_password, database="your_db_name")
+```
 
 ## Understanding the Output
 

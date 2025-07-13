@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from graphiti_core.driver.driver import GraphDriver
 from graphiti_core.edges import CommunityEdge
 from graphiti_core.embedder import EmbedderClient
-from graphiti_core.helpers import DEFAULT_DATABASE, semaphore_gather
+from graphiti_core.helpers import semaphore_gather
 from graphiti_core.llm_client import LLMClient
 from graphiti_core.models.nodes.node_db_queries import COMMUNITY_NODE_RETURN
 from graphiti_core.nodes import CommunityNode, EntityNode, get_community_node_from_record
@@ -38,7 +38,6 @@ async def get_community_clusters(
         RETURN 
             collect(DISTINCT n.group_id) AS group_ids
         """,
-            database_=DEFAULT_DATABASE,
         )
 
         group_ids = group_id_values[0]['group_ids'] if group_id_values else []
@@ -57,7 +56,6 @@ async def get_community_clusters(
             """,
                 uuid=node.uuid,
                 group_id=group_id,
-                database_=DEFAULT_DATABASE,
             )
 
             projection[node.uuid] = [
@@ -225,7 +223,6 @@ async def remove_communities(driver: GraphDriver):
         MATCH (c:Community)
         DETACH DELETE c
         """,
-        database_=DEFAULT_DATABASE,
     )
 
 
@@ -240,7 +237,6 @@ async def determine_entity_community(
         """
         + COMMUNITY_NODE_RETURN(driver.provider),
         entity_uuid=entity.uuid,
-        database_=DEFAULT_DATABASE,
     )
 
     if len(records) > 0:
@@ -254,7 +250,6 @@ async def determine_entity_community(
         """
         + COMMUNITY_NODE_RETURN(driver.provider),
         entity_uuid=entity.uuid,
-        database_=DEFAULT_DATABASE,
     )
 
     communities: list[CommunityNode] = [
