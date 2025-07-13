@@ -334,6 +334,7 @@ class EntityEdge(Edge):
         query = (
             """
             MATCH (n:Entity {uuid: $node_uuid})-[e:RELATES_TO]-(m:Entity)
+            RETURN
             """
             + ENTITY_EDGE_RETURN(driver.provider)
         )

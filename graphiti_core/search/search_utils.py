@@ -834,10 +834,6 @@ async def get_edge_invalidation_candidates(
         WHERE score > $min_score
         WITH edge, e, score
         ORDER BY score DESC
-        RETURN
-        """
-        + ENTITY_EDGE_RETURN(driver.provider)
-        + """
         RETURN edge.uuid AS search_edge_uuid,
             collect({
                 uuid: e.uuid,

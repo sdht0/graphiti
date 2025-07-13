@@ -20,7 +20,6 @@ from typing import Any
 import kuzu
 
 from graphiti_core.driver.driver import GraphDriver, GraphDriverSession
-from graphiti_core.helpers import DEFAULT_DATABASE
 from graphiti_core.models.edges.edge_db_queries import KUZU_EDGE_SCHEMA
 from graphiti_core.models.nodes.node_db_queries import KUZU_NODE_SCHEMA
 
@@ -81,7 +80,7 @@ class KuzuDriver(GraphDriver):
     async def close(self):
         self.client.close()
 
-    def delete_all_indexes(self, database_: str = DEFAULT_DATABASE):
+    def delete_all_indexes(self, database_: str):
         pass
 
 
