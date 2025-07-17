@@ -26,6 +26,8 @@ NEO4J_TO_FALKORDB_MAPPING = {
 
 
 def get_range_indices(db_type: str = 'neo4j') -> list[LiteralString]:
+    if db_type == 'kuzu':
+        return []
     if db_type == 'falkordb':
         return [
             # Entity node
@@ -66,6 +68,8 @@ def get_range_indices(db_type: str = 'neo4j') -> list[LiteralString]:
 
 
 def get_fulltext_indices(db_type: str = 'neo4j') -> list[LiteralString]:
+    if db_type == 'kuzu':
+        return []
     if db_type == 'falkordb':
         return [
             """CREATE FULLTEXT INDEX FOR (e:Episodic) ON (e.content, e.source, e.source_description, e.group_id)""",
@@ -87,6 +91,8 @@ def get_fulltext_indices(db_type: str = 'neo4j') -> list[LiteralString]:
 
 
 def get_nodes_query(db_type: str = 'neo4j', name: str = '', query: str | None = None) -> str:
+    if db_type == 'kuzu':
+        return f'CALL db.index.fulltext.queryNodes("{name}", {query}, {{limit: $limit}})'
     if db_type == 'falkordb':
         label = NEO4J_TO_FALKORDB_MAPPING[name]
         return f"CALL db.idx.fulltext.queryNodes('{label}', {query})"

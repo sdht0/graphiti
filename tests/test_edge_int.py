@@ -419,22 +419,25 @@ async def test_community_edge(driver):
 
 
 async def get_node_count(driver: GraphDriver, uuid: str):
-    result, _, _ = await driver.execute_query(
+    results, _, _ = await driver.execute_query(
         """
         MATCH (n {uuid: $uuid})
         RETURN COUNT(n) as count
         """,
         uuid=uuid,
     )
-    return int(result[0]['count'])
+    return int(results[0]['count'])
 
 
 async def get_edge_count(driver: GraphDriver, uuid: str):
-    result, _, _ = await driver.execute_query(
+    results, _, _ = await driver.execute_query(
         """
         MATCH (n)-[e {uuid: $uuid}]->(m)
         RETURN COUNT(e) as count
+        UNION ALL
+        MATCH (n)-[e:RELATES_TO]->(m {uuid: $uuid})-[e2:RELATES_TO]->(m2)
+        RETURN COUNT(m) as count
         """,
         uuid=uuid,
     )
-    return int(result[0]['count'])
+    return sum(int(result['count']) for result in results)

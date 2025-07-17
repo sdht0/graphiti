@@ -14,36 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-KUZU_EDGE_SCHEMA = """
-    CREATE REL TABLE IF NOT EXISTS MENTIONS(
-        FROM Episodic TO Entity,
-        uuid STRING PRIMARY KEY,
-        group_id STRING,
-        created_at TIMESTAMP,
-        fact_embedding FLOAT[]
-    );
-    CREATE REL TABLE IF NOT EXISTS RELATES_TO(
-        FROM Entity TO Entity,
-        uuid STRING PRIMARY KEY,
-        group_id STRING,
-        name STRING,
-        fact STRING,
-        fact_embedding FLOAT[],
-        episodes STRING[],
-        created_at TIMESTAMP,
-        expired_at TIMESTAMP,
-        valid_at TIMESTAMP,
-        invalid_at TIMESTAMP
-    );
-    CREATE REL TABLE IF NOT EXISTS HAS_MEMBER(
-        FROM Community TO Entity,
-        FROM Community TO Community,
-        uuid STRING PRIMARY KEY,
-        group_id STRING,
-        created_at TIMESTAMP
-    );
-"""
-
 def EPISODIC_EDGE_SAVE(provider: str) -> str:
     if provider == 'kuzu':
         return """
@@ -145,27 +115,28 @@ def ENTITY_EDGE_SAVE(provider: str) -> str:
         return """
             MATCH (source:Entity {uuid: $source_uuid})
             MATCH (target:Entity {uuid: $target_uuid})
-            MERGE (source)-[r:RELATES_TO {uuid: $uuid}]->(target)
+            MERGE (source)-[:RELATES_TO]->(e:_RelatesToNode {uuid: $uuid})-[:RELATES_TO]->(target)
             SET
-                r.name = $name,
-                r.group_id = $group_id,
-                r.fact = $fact,
-                r.fact_embedding = $fact_embedding,
-                r.episodes = $episodes,
-                r.created_at = $created_at,
-                r.expired_at = $expired_at,
-                r.valid_at = $valid_at,
-                r.invalid_at = $invalid_at
-            RETURN r.uuid AS uuid
+                e.name = $name,
+                e.group_id = $group_id,
+                e.fact = $fact,
+                e.fact_embedding = $fact_embedding,
+                e.episodes = $episodes,
+                e.created_at = $created_at,
+                e.expired_at = $expired_at,
+                e.valid_at = $valid_at,
+                e.invalid_at = $invalid_at
+            RETURN e.uuid AS uuid
         """
 
     return """
         MATCH (source:Entity {uuid: $edge_data.source_uuid})
         MATCH (target:Entity {uuid: $edge_data.target_uuid})
-        MERGE (source)-[r:RELATES_TO {uuid: $edge_data.uuid}]->(target)
-        SET r = $edge_data
-        WITH r CALL db.create.setRelationshipVectorProperty(r, "fact_embedding", $edge_data.fact_embedding)
-        RETURN r.uuid AS uuid
+        MERGE (source)-[e:RELATES_TO {uuid: $edge_data.uuid}]->(target)
+        SET e = $edge_data
+        WITH e
+        CALL db.create.setRelationshipVectorProperty(e, "fact_embedding", $edge_data.fact_embedding)
+        RETURN e.uuid AS uuid
     """
 
 ENTITY_EDGE_SAVE_BULK = """
@@ -192,27 +163,27 @@ def COMMUNITY_EDGE_SAVE(provider: str) -> str:
         return """
             MATCH (community:Community {uuid: $community_uuid}) 
             MATCH (node:Entity {uuid: $entity_uuid}) 
-            MERGE (community)-[r:HAS_MEMBER {uuid: $uuid}]->(node)
+            MERGE (community)-[e:HAS_MEMBER {uuid: $uuid}]->(node)
             SET
-                r.uuid = $uuid,
-                r.group_id = $group_id,
-                r.created_at = $created_at
-            RETURN r.uuid AS uuid
+                e.uuid = $uuid,
+                e.group_id = $group_id,
+                e.created_at = $created_at
+            RETURN e.uuid AS uuid
             UNION
             MATCH (community:Community {uuid: $community_uuid}) 
             MATCH (node:Community {uuid: $entity_uuid}) 
-            MERGE (community)-[r:HAS_MEMBER {uuid: $uuid}]->(node)
+            MERGE (community)-[e:HAS_MEMBER {uuid: $uuid}]->(node)
             SET
-                r.uuid = $uuid,
-                r.group_id = $group_id,
-                r.created_at = $created_at
-            RETURN r.uuid AS uuid
+                e.uuid = $uuid,
+                e.group_id = $group_id,
+                e.created_at = $created_at
+            RETURN e.uuid AS uuid
         """
 
     return """
         MATCH (community:Community {uuid: $community_uuid}) 
         MATCH (node:Entity | Community {uuid: $entity_uuid}) 
-        MERGE (community)-[r:HAS_MEMBER {uuid: $uuid}]->(node)
-        SET r = {uuid: $uuid, group_id: $group_id, created_at: $created_at}
-        RETURN r.uuid AS uuid
+        MERGE (community)-[e:HAS_MEMBER {uuid: $uuid}]->(node)
+        SET e = {uuid: $uuid, group_id: $group_id, created_at: $created_at}
+        RETURN e.uuid AS uuid
     """

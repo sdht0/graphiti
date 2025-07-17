@@ -14,38 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-KUZU_NODE_SCHEMA = """
-    CREATE NODE TABLE IF NOT EXISTS Episodic (
-        uuid STRING PRIMARY KEY,
-        name STRING,
-        group_id STRING,
-        source_description STRING,
-        source STRING,
-        content STRING,
-        entity_edges STRING[],
-        created_at TIMESTAMP,
-        valid_at TIMESTAMP
-    );
-    CREATE NODE TABLE IF NOT EXISTS Entity (
-        uuid STRING PRIMARY KEY,
-        labels STRING[],
-        name STRING,
-        name_embedding FLOAT[],
-        group_id STRING,
-        summary STRING,
-        created_at TIMESTAMP
-    );
-    CREATE NODE TABLE IF NOT EXISTS Community (
-        uuid STRING PRIMARY KEY,
-        name STRING,
-        name_embedding FLOAT[],
-        group_id STRING,
-        summary STRING,
-        created_at TIMESTAMP
-    );
-"""
-
-
 def EPISODIC_NODE_SAVE(_provider: str) -> str:
     return """
         MERGE (n:Episodic {uuid: $uuid})

@@ -20,10 +20,71 @@ from typing import Any
 import kuzu
 
 from graphiti_core.driver.driver import GraphDriver, GraphDriverSession
-from graphiti_core.models.edges.edge_db_queries import KUZU_EDGE_SCHEMA
-from graphiti_core.models.nodes.node_db_queries import KUZU_NODE_SCHEMA
 
 logger = logging.getLogger(__name__)
+
+
+KUZU_SCHEMA = """
+    CREATE NODE TABLE IF NOT EXISTS Episodic (
+        uuid STRING PRIMARY KEY,
+        name STRING,
+        group_id STRING,
+        source_description STRING,
+        source STRING,
+        content STRING,
+        entity_edges STRING[],
+        created_at TIMESTAMP,
+        valid_at TIMESTAMP
+    );
+    CREATE NODE TABLE IF NOT EXISTS Entity (
+        uuid STRING PRIMARY KEY,
+        labels STRING[],
+        name STRING,
+        name_embedding FLOAT[],
+        group_id STRING,
+        summary STRING,
+        created_at TIMESTAMP
+    );
+    CREATE NODE TABLE IF NOT EXISTS _RelatesToNode (
+        uuid STRING PRIMARY KEY,
+        group_id STRING,
+        name STRING,
+        fact STRING,
+        fact_embedding FLOAT[],
+        episodes STRING[],
+        created_at TIMESTAMP,
+        expired_at TIMESTAMP,
+        valid_at TIMESTAMP,
+        invalid_at TIMESTAMP
+    );
+    CREATE NODE TABLE IF NOT EXISTS Community (
+        uuid STRING PRIMARY KEY,
+        name STRING,
+        name_embedding FLOAT[],
+        group_id STRING,
+        summary STRING,
+        created_at TIMESTAMP
+    );
+    CREATE REL TABLE IF NOT EXISTS MENTIONS(
+        FROM Episodic TO Entity,
+        uuid STRING PRIMARY KEY,
+        group_id STRING,
+        created_at TIMESTAMP,
+        fact_embedding FLOAT[]
+    );
+
+    CREATE REL TABLE IF NOT EXISTS RELATES_TO(
+        FROM Entity TO _RelatesToNode,
+        FROM _RelatesToNode TO Entity
+    );
+    CREATE REL TABLE IF NOT EXISTS HAS_MEMBER(
+        FROM Community TO Entity,
+        FROM Community TO Community,
+        uuid STRING,
+        group_id STRING,
+        created_at TIMESTAMP
+    );
+"""
 
 
 class KuzuDriver(GraphDriver):
@@ -38,8 +99,7 @@ class KuzuDriver(GraphDriver):
         self.db = kuzu.Database(db)
 
         conn = kuzu.Connection(self.db)
-        conn.execute(KUZU_NODE_SCHEMA)
-        conn.execute(KUZU_EDGE_SCHEMA)
+        conn.execute(KUZU_SCHEMA)
         conn.close()
 
         self.client = kuzu.AsyncConnection(self.db, max_concurrent_queries=max_concurrent_queries)

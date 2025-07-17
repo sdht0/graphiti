@@ -542,7 +542,7 @@ class Graphiti:
         group_id: str = '',
         entity_types: dict[str, type[BaseModel]] | None = None,
         excluded_entity_types: list[str] | None = None,
-        edge_types: dict[str, type[BaseModel]] | None = None,
+        edge_types: dict[str, BaseModel] | None = None,
         edge_type_map: dict[tuple[str, str], list[str]] | None = None,
     ):
         """
