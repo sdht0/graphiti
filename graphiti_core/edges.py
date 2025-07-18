@@ -38,7 +38,6 @@ from graphiti_core.models.edges.edge_db_queries import (
 
 logger = logging.getLogger(__name__)
 
-
 class Edge(BaseModel, ABC):
     uuid: str = Field(default_factory=lambda: str(uuid4()))
     group_id: str = Field(description='partition of the graph')
@@ -335,9 +334,17 @@ class EntityEdge(Edge):
         group_ids: list[str],
         limit: int | None = None,
         uuid_cursor: str | None = None,
+        with_embeddings: bool = False,
     ):
         cursor_query: LiteralString = 'AND e.uuid < $uuid' if uuid_cursor else ''
         limit_query: LiteralString = 'LIMIT $limit' if limit is not None else ''
+        with_embeddings_query: LiteralString = (
+            """,
+                e.fact_embedding AS fact_embedding
+                """
+            if with_embeddings
+            else ''
+        )
 
         if driver.provider == 'kuzu':
             match_query = """
@@ -358,6 +365,7 @@ class EntityEdge(Edge):
             RETURN
             """
             + ENTITY_EDGE_RETURN(driver.provider)
+            + with_embeddings_query
             + """
             ORDER BY e.uuid DESC 
             """
@@ -511,6 +519,7 @@ def get_entity_edge_from_record(record: Any, provider: str) -> EntityEdge:
         source_node_uuid=record['source_node_uuid'],
         target_node_uuid=record['target_node_uuid'],
         fact=record['fact'],
+        fact_embedding=record.get('fact_embedding'),
         name=record['name'],
         group_id=record['group_id'],
         episodes=record['episodes'],

@@ -349,9 +349,17 @@ class EntityNode(Node):
         group_ids: list[str],
         limit: int | None = None,
         uuid_cursor: str | None = None,
+        with_embeddings: bool = False,
     ):
         cursor_query: LiteralString = 'AND n.uuid < $uuid' if uuid_cursor else ''
         limit_query: LiteralString = 'LIMIT $limit' if limit is not None else ''
+        with_embeddings_query: LiteralString = (
+            """,
+                n.name_embedding AS name_embedding
+                """
+            if with_embeddings
+            else ''
+        )
 
         records, _, _ = await driver.execute_query(
             """
@@ -362,6 +370,7 @@ class EntityNode(Node):
             RETURN
             """
             + ENTITY_NODE_RETURN(driver.provider)
+            + with_embeddings_query
             + """
             ORDER BY n.uuid DESC
             """
@@ -529,12 +538,14 @@ def get_entity_node_from_record(record: Any, provider: str) -> EntityNode:
         created_at = parse_db_date(created_at)
 
     entity_node = EntityNode(
-        uuid=attributes.pop('uuid'),
-        name=attributes.pop('name'),
-        group_id=attributes.pop('group_id'),
-        labels=labels,
-        created_at=created_at,  # type: ignore
-        summary=attributes.pop('summary'),
+        uuid=record['uuid'],
+        name=record['name'],
+        name_embedding=record.get('name_embedding'),
+        group_id=record['group_id'],
+        labels=record['labels'],
+        created_at=parse_db_date(record['created_at']),  # type: ignore
+        summary=record['summary'],
+        attributes=record['attributes'],
     )
 
     for key in ['labels', 'name_embedding', '_id', '_label']:
