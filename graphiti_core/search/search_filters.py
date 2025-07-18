@@ -52,13 +52,18 @@ class SearchFilters(BaseModel):
 
 def node_search_filter_query_constructor(
     filters: SearchFilters,
+    provider: str,
 ) -> tuple[str, dict[str, Any]]:
     filter_query: str = ''
     filter_params: dict[str, Any] = {}
 
     if filters.node_labels is not None:
-        node_labels = '|'.join(filters.node_labels)
-        node_label_filter = ' AND n:' + node_labels
+        if provider == 'kuzu':
+            node_label_filter = '\nAND list_has_all(n.labels, $node_labels)'
+            filter_params['node_labels'] = filters.node_labels
+        else:
+            node_labels = '|'.join(filters.node_labels)
+            node_label_filter = ' AND n:' + node_labels
         filter_query += node_label_filter
 
     return filter_query, filter_params
@@ -66,6 +71,7 @@ def node_search_filter_query_constructor(
 
 def edge_search_filter_query_constructor(
     filters: SearchFilters,
+    provider: str,
 ) -> tuple[str, dict[str, Any]]:
     filter_query: str = ''
     filter_params: dict[str, Any] = {}
@@ -77,8 +83,12 @@ def edge_search_filter_query_constructor(
         filter_params['edge_types'] = edge_types
 
     if filters.node_labels is not None:
-        node_labels = '|'.join(filters.node_labels)
-        node_label_filter = '\nAND n:' + node_labels + ' AND m:' + node_labels
+        if provider == 'kuzu':
+            node_label_filter = '\nAND list_has_all(n.labels, $node_labels) AND list_has_all(m.labels, $node_labels)'
+            filter_params['node_labels'] = filters.node_labels
+        else:
+            node_labels = '|'.join(filters.node_labels)
+            node_label_filter = '\nAND n:' + node_labels + ' AND m:' + node_labels
         filter_query += node_label_filter
 
     if filters.valid_at is not None:

@@ -35,7 +35,6 @@ from graphiti_core.models.edges.edge_db_queries import (
     ENTITY_EDGE_SAVE,
     EPISODIC_EDGE_SAVE,
 )
-from graphiti_core.nodes import Node
 
 logger = logging.getLogger(__name__)
 

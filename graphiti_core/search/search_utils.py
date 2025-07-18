@@ -152,19 +152,40 @@ async def edge_fulltext_search(
     if fuzzy_query == '':
         return []
 
-    filter_query, filter_params = edge_search_filter_query_constructor(search_filter)
+    filter_query, filter_params = edge_search_filter_query_constructor(
+        search_filter, driver.provider
+    )
+
+    if driver.provider == 'kuzu':
+        query_body = (
+            """
+            YIELD node AS rel, score
+            MATCH (n:Entity)-[:RELATES_TO]->(e:_RelatesToNode)-[:RELATES_TO]->(m:Entity)
+            WHERE e.group_id IN $group_ids
+            """
+            + filter_query
+            + """
+            WITH e, score, n, m
+            RETURN
+            """
+        )
+    else:
+        query_body = (
+            """
+            YIELD relationship AS rel, score
+            MATCH (n:Entity)-[e:RELATES_TO]->(m:Entity)
+            WHERE e.group_id IN $group_ids
+            """
+            + filter_query
+            + """
+            WITH e, score, startNode(e) AS n, endNode(e) AS m
+            RETURN
+            """
+        )
 
     query = (
-        get_relationships_query('edge_name_and_fact', db_type=driver.provider)
-        + """
-        YIELD relationship AS rel, score
-        MATCH (n:Entity)-[e:RELATES_TO]->(m:Entity)
-        WHERE e.group_id IN $group_ids """
-        + filter_query
-        + """
-        WITH e, score, startNode(e) AS n, endNode(e) AS m
-        RETURN
-        """
+        get_relationships_query('edge_name_and_fact', provider=driver.provider)
+        + query_body
         + ENTITY_EDGE_RETURN(driver.provider)
         + """
         ORDER BY score DESC
@@ -199,7 +220,9 @@ async def edge_similarity_search(
     # vector similarity search over embedded facts
     query_params: dict[str, Any] = {}
 
-    filter_query, filter_params = edge_search_filter_query_constructor(search_filter)
+    filter_query, filter_params = edge_search_filter_query_constructor(
+        search_filter, driver.provider
+    )
     query_params.update(filter_params)
 
     group_filter_query: LiteralString = 'WHERE e.group_id IS NOT NULL'
@@ -215,11 +238,18 @@ async def edge_similarity_search(
         if target_node_uuid is not None:
             group_filter_query += '\nAND (m.uuid IN [$source_uuid, $target_uuid])'
 
-    query = (
-        RUNTIME_QUERY(driver.provider)
-        + """
+    if driver.provider == 'kuzu':
+        match_query = """
+        MATCH (n:Entity)-[:RELATES_TO]->(e:_RelatesToNode)-[:RELATES_TO]->(m:Entity)
+        """
+    else:
+        match_query = """
         MATCH (n:Entity)-[e:RELATES_TO]->(m:Entity)
         """
+
+    query = (
+        RUNTIME_QUERY(driver.provider)
+        + match_query
         + group_filter_query
         + filter_query
         + """
@@ -263,7 +293,9 @@ async def edge_bfs_search(
     if bfs_origin_node_uuids is None:
         return []
 
-    filter_query, filter_params = edge_search_filter_query_constructor(search_filter)
+    filter_query, filter_params = edge_search_filter_query_constructor(
+        search_filter, driver.provider
+    )
 
     query = (
         """
@@ -308,15 +340,17 @@ async def node_fulltext_search(
     fuzzy_query = fulltext_query(query, group_ids)
     if fuzzy_query == '':
         return []
-    filter_query, filter_params = node_search_filter_query_constructor(search_filter)
+    filter_query, filter_params = node_search_filter_query_constructor(
+        search_filter, driver.provider
+    )
 
     query = (
         get_nodes_query(driver.provider, 'node_name_and_summary', '$query')
         + """
         YIELD node AS n, score
-            WITH n, score
-            LIMIT $limit
-            WHERE n:Entity
+        WITH n, score
+        LIMIT $limit
+        WHERE n:Entity
         """
         + filter_query
         + """
@@ -357,7 +391,9 @@ async def node_similarity_search(
         group_filter_query += ' AND n.group_id IN $group_ids'
         query_params['group_ids'] = group_ids
 
-    filter_query, filter_params = node_search_filter_query_constructor(search_filter)
+    filter_query, filter_params = node_search_filter_query_constructor(
+        search_filter, driver.provider
+    )
     query_params.update(filter_params)
 
     query = (
@@ -407,7 +443,9 @@ async def node_bfs_search(
     if bfs_origin_node_uuids is None:
         return []
 
-    filter_query, filter_params = node_search_filter_query_constructor(search_filter)
+    filter_query, filter_params = node_search_filter_query_constructor(
+        search_filter, driver.provider
+    )
 
     query = (
         """
@@ -656,7 +694,9 @@ async def get_relevant_nodes(
     # vector similarity search over entity names
     query_params: dict[str, Any] = {}
 
-    filter_query, filter_params = node_search_filter_query_constructor(search_filter)
+    filter_query, filter_params = node_search_filter_query_constructor(
+        search_filter, driver.provider
+    )
     query_params.update(filter_params)
 
     query = (
@@ -747,7 +787,9 @@ async def get_relevant_edges(
 
     query_params: dict[str, Any] = {}
 
-    filter_query, filter_params = edge_search_filter_query_constructor(search_filter)
+    filter_query, filter_params = edge_search_filter_query_constructor(
+        search_filter, driver.provider
+    )
     query_params.update(filter_params)
 
     query = (
@@ -816,14 +858,27 @@ async def get_edge_invalidation_candidates(
 
     query_params: dict[str, Any] = {}
 
-    filter_query, filter_params = edge_search_filter_query_constructor(search_filter)
+    filter_query, filter_params = edge_search_filter_query_constructor(
+        search_filter, driver.provider
+    )
     query_params.update(filter_params)
+
+    if driver.provider == 'kuzu':
+        match_query = """
+        MATCH (n:Entity)-[:RELATES_TO]->(e:_RelatesToNode {group_id: edge.group_id})-[:RELATES_TO]->(m:Entity)
+        """
+    else:
+        match_query = """
+        MATCH (n:Entity)-[e:RELATES_TO {group_id: edge.group_id}]->(m:Entity)
+        """
 
     query = (
         RUNTIME_QUERY(driver.provider)
         + """
         UNWIND $edges AS edge
-        MATCH (n:Entity)-[e:RELATES_TO {group_id: edge.group_id}]->(m:Entity)
+        """
+        + match_query
+        + """
         WHERE n.uuid IN [edge.source_node_uuid, edge.target_node_uuid] OR m.uuid IN [edge.target_node_uuid, edge.source_node_uuid]
         """
         + filter_query
@@ -899,13 +954,23 @@ async def node_distance_reranker(
     scores: dict[str, float] = {center_node_uuid: 0.0}
 
     # Find the shortest path to center node
-    query = """
-        UNWIND $node_uuids AS node_uuid
-        MATCH (center:Entity {uuid: $center_uuid})-[:RELATES_TO]-(n:Entity {uuid: node_uuid})
-        RETURN 1 AS score, node_uuid AS uuid
+    if driver.provider == 'kuzu':
+        match_query = """
+        MATCH (center:Entity {uuid: $center_uuid})-[:RELATES_TO]->(e:_RelatesToNode)-[:RELATES_TO]->(n:Entity {uuid: node_uuid})
         """
+    else:
+        match_query = """
+        MATCH (center:Entity {uuid: $center_uuid})-[:RELATES_TO]-(n:Entity {uuid: node_uuid})
+        """
+
     results, header, _ = await driver.execute_query(
-        query,
+        """
+        UNWIND $node_uuids AS node_uuid
+        """
+        + match_query
+        + """
+        RETURN 1 AS score, node_uuid AS uuid
+        """,
         node_uuids=filtered_uuids,
         center_uuid=center_node_uuid,
         routing_='r',
@@ -942,10 +1007,11 @@ async def episode_mentions_reranker(
 
     # Find the shortest path to center node
     query = """
-        UNWIND $node_uuids AS node_uuid 
-        MATCH (episode:Episodic)-[r:MENTIONS]->(n:Entity {uuid: node_uuid})
-        RETURN count(*) AS score, n.uuid AS uuid
-        """
+    UNWIND $node_uuids AS node_uuid 
+    MATCH (episode:Episodic)-[r:MENTIONS]->(n:Entity {uuid: node_uuid})
+    RETURN count(*) AS score, n.uuid AS uuid
+    """
+
     results, _, _ = await driver.execute_query(
         query,
         node_uuids=sorted_uuids,
@@ -1003,12 +1069,13 @@ def maximal_marginal_relevance(
 async def get_embeddings_for_nodes(
     driver: GraphDriver, nodes: list[EntityNode]
 ) -> dict[str, list[float]]:
-    query: LiteralString = """MATCH (n:Entity)
-                              WHERE n.uuid IN $node_uuids
-                              RETURN DISTINCT
-                                n.uuid AS uuid,
-                                n.name_embedding AS name_embedding
-                    """
+    query: LiteralString = """
+    MATCH (n:Entity)
+    WHERE n.uuid IN $node_uuids
+    RETURN DISTINCT
+        n.uuid AS uuid,
+        n.name_embedding AS name_embedding
+    """
 
     results, _, _ = await driver.execute_query(
         query, node_uuids=[node.uuid for node in nodes], routing_='r'
@@ -1027,12 +1094,13 @@ async def get_embeddings_for_nodes(
 async def get_embeddings_for_communities(
     driver: GraphDriver, communities: list[CommunityNode]
 ) -> dict[str, list[float]]:
-    query: LiteralString = """MATCH (c:Community)
-                              WHERE c.uuid IN $community_uuids
-                              RETURN DISTINCT
-                                c.uuid AS uuid,
-                                c.name_embedding AS name_embedding
-                    """
+    query: LiteralString = """
+    MATCH (c:Community)
+    WHERE c.uuid IN $community_uuids
+    RETURN DISTINCT
+        c.uuid AS uuid,
+        c.name_embedding AS name_embedding
+    """
 
     results, _, _ = await driver.execute_query(
         query,
@@ -1053,15 +1121,23 @@ async def get_embeddings_for_communities(
 async def get_embeddings_for_edges(
     driver: GraphDriver, edges: list[EntityEdge]
 ) -> dict[str, list[float]]:
-    query: LiteralString = """MATCH (n:Entity)-[e:RELATES_TO]-(m:Entity)
-                              WHERE e.uuid IN $edge_uuids
-                              RETURN DISTINCT
-                                e.uuid AS uuid,
-                                e.fact_embedding AS fact_embedding
-                    """
+    if driver.provider == 'kuzu':
+        match_query = """
+        MATCH (n:Entity)-[:RELATES_TO]->(e:_RelatesToNode)-[:RELATES_TO]->(m:Entity)
+        """
+    else:
+        match_query = """
+        MATCH (n:Entity)-[e:RELATES_TO]-(m:Entity)
+        """
 
     results, _, _ = await driver.execute_query(
-        query,
+        match_query
+        + """
+        WHERE e.uuid IN $edge_uuids
+        RETURN DISTINCT
+            e.uuid AS uuid,
+            e.fact_embedding AS fact_embedding
+        """,
         edge_uuids=[edge.uuid for edge in edges],
         routing_='r',
     )

@@ -14,6 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+from typing import Any
+
+
 def EPISODIC_NODE_SAVE(_provider: str) -> str:
     return """
         MERGE (n:Episodic {uuid: $uuid})
@@ -30,15 +33,32 @@ def EPISODIC_NODE_SAVE(_provider: str) -> str:
     """
 
 
-EPISODIC_NODE_SAVE_BULK = """
-    UNWIND $episodes AS episode
-    MERGE (n:Episodic {uuid: episode.uuid})
-    SET n = {uuid: episode.uuid, name: episode.name, group_id: episode.group_id,
-        source_description: episode.source_description, source: episode.source,
-        content: episode.content, entity_edges: episode.entity_edges,
-        created_at: episode.created_at, valid_at: episode.valid_at}
-    RETURN n.uuid AS uuid
-"""
+def EPISODIC_NODE_SAVE_BULK(provider: str) -> str:
+    if provider == 'kuzu':
+        return """
+            UNWIND $episodes AS episode
+            MERGE (n:Episodic {uuid: episode.uuid})
+            SET
+                n.name = episode.name,
+                n.group_id = episode.group_id,
+                n.source_description = episode.source_description,  
+                n.source = episode.source,
+                n.content = episode.content,
+                n.entity_edges = episode.entity_edges,
+                n.created_at = episode.created_at,
+                n.valid_at = episode.valid_at
+            RETURN n.uuid AS uuid
+        """
+
+    return """
+        UNWIND $episodes AS episode
+        MERGE (n:Episodic {uuid: episode.uuid})
+        SET n = {uuid: episode.uuid, name: episode.name, group_id: episode.group_id,
+            source_description: episode.source_description, source: episode.source,
+            content: episode.content, entity_edges: episode.entity_edges,
+            created_at: episode.created_at, valid_at: episode.valid_at}
+        RETURN n.uuid AS uuid
+    """
 
 
 def EPISODIC_NODE_RETURN(_provider: str) -> str:
@@ -79,14 +99,50 @@ def ENTITY_NODE_SAVE(provider: str) -> str:
     """
 
 
-ENTITY_NODE_SAVE_BULK = """
-    UNWIND $nodes AS node
-    MERGE (n:Entity {uuid: node.uuid})
-    SET n:$(node.labels)
-    SET n = node
-    WITH n, node CALL db.create.setNodeVectorProperty(n, "name_embedding", node.name_embedding)
-    RETURN n.uuid AS uuid
-"""
+def ENTITY_NODE_SAVE_BULK(nodes, provider: str) -> str | list[Any]:
+    if provider == 'kuzu':
+        return """
+            UNWIND $nodes AS node
+            MERGE (n:Entity {uuid: node.uuid})
+            SET
+                n.labels = node.labels,
+                n.name = node.name,
+                n.name_embedding = node.name_embedding,
+                n.group_id = node.group_id,
+                n.summary = node.summary,
+                n.created_at = node.created_at
+            RETURN n.uuid AS uuid
+        """
+
+    if provider == 'falkordb':
+        queries = []
+        for node in nodes:
+            for label in node['labels']:
+                queries.append(
+                    (
+                        f"""
+                        UNWIND $nodes AS node
+                        MERGE (n:Entity {{uuid: node.uuid}})
+                        SET n:{label}
+                        SET n = node
+                        WITH n, node
+                        SET n.name_embedding = vecf32(node.name_embedding)
+                        RETURN n.uuid AS uuid
+                        """,
+                        {'nodes': [node]},
+                    )
+                )
+        return queries
+
+    return """
+        UNWIND $nodes AS node
+        MERGE (n:Entity {uuid: node.uuid})
+        SET n:$(node.labels)
+        SET n = node
+        WITH n, node CALL db.create.setNodeVectorProperty(n, "name_embedding", node.name_embedding)
+        RETURN n.uuid AS uuid
+    """
+
 
 def ENTITY_NODE_RETURN(provider: str) -> str:
     if provider == 'kuzu':
@@ -99,6 +155,7 @@ def ENTITY_NODE_RETURN(provider: str) -> str:
         properties(n) AS attributes,
         labels(n) AS labels
     """
+
 
 def COMMUNITY_NODE_SAVE(provider: str) -> str:
     if provider == 'kuzu':

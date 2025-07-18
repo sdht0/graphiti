@@ -86,6 +86,16 @@ KUZU_SCHEMA = """
     );
 """
 
+KUZU_FTS_EXTENSION = """
+    INSTALL fts;
+    LOAD fts;
+"""
+
+KUZU_VECTOR_EXTENSION = """
+    INSTALL vector;
+    LOAD vector;
+"""
+
 
 class KuzuDriver(GraphDriver):
     provider: str = 'kuzu'
@@ -100,6 +110,8 @@ class KuzuDriver(GraphDriver):
 
         conn = kuzu.Connection(self.db)
         conn.execute(KUZU_SCHEMA)
+        conn.execute(KUZU_FTS_EXTENSION)
+        conn.execute(KUZU_VECTOR_EXTENSION)
         conn.close()
 
         self.client = kuzu.AsyncConnection(self.db, max_concurrent_queries=max_concurrent_queries)
@@ -126,13 +138,13 @@ class KuzuDriver(GraphDriver):
 
     async def print_graph(self):
         res = await self.execute_query('MATCH (n) RETURN n')
-        print("Nodes:")
+        print('Nodes:')
         for r in res:
-            print("  ", r)
+            print('  ', r)
         res = await self.execute_query('MATCH (n)-[r]->(m) RETURN r')
-        print("Edges:")
+        print('Edges:')
         for r in res:
-            print("  ", r)
+            print('  ', r)
 
     def session(self, _database: str) -> GraphDriverSession:
         return KuzuDriverSession(self)

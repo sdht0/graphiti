@@ -5,16 +5,7 @@ This module provides database-agnostic query generation for Neo4j and FalkorDB,
 supporting index creation, fulltext search, and bulk operations.
 """
 
-from typing import Any
-
 from typing_extensions import LiteralString
-
-from graphiti_core.models.edges.edge_db_queries import (
-    ENTITY_EDGE_SAVE_BULK,
-)
-from graphiti_core.models.nodes.node_db_queries import (
-    ENTITY_NODE_SAVE_BULK,
-)
 
 # Mapping from Neo4j fulltext index names to FalkorDB node labels
 NEO4J_TO_FALKORDB_MAPPING = {
@@ -22,6 +13,14 @@ NEO4J_TO_FALKORDB_MAPPING = {
     'community_name': 'Community',
     'episode_content': 'Episodic',
     'edge_name_and_fact': 'RELATES_TO',
+}
+
+# Mapping from fulltext index names to Kuzu node labels
+INDEX_TO_LABEL_KUZU_MAPPING = {
+    'node_name_and_summary': 'Entity',
+    'community_name': 'Community',
+    'episode_content': 'Episodic',
+    'edge_name_and_fact': '_RelatesToNode',
 }
 
 
@@ -69,7 +68,13 @@ def get_range_indices(db_type: str = 'neo4j') -> list[LiteralString]:
 
 def get_fulltext_indices(db_type: str = 'neo4j') -> list[LiteralString]:
     if db_type == 'kuzu':
-        return []
+        return [
+            "CALL CREATE_FTS_INDEX('Episodic', 'episode_content', ['content', 'source', 'source_description', 'group_id']);",
+            "CALL CREATE_FTS_INDEX('Entity', 'node_name_and_summary', ['name', 'summary', 'group_id']);",
+            "CALL CREATE_FTS_INDEX('Community', 'community_name', ['name', 'group_id']);",
+            "CALL CREATE_FTS_INDEX('_RelatesToNode', 'edge_name_and_fact', ['name', 'fact', 'group_id']);",
+        ]
+
     if db_type == 'falkordb':
         return [
             """CREATE FULLTEXT INDEX FOR (e:Episodic) ON (e.content, e.source, e.source_description, e.group_id)""",
@@ -77,27 +82,29 @@ def get_fulltext_indices(db_type: str = 'neo4j') -> list[LiteralString]:
             """CREATE FULLTEXT INDEX FOR (n:Community) ON (n.name, n.group_id)""",
             """CREATE FULLTEXT INDEX FOR ()-[e:RELATES_TO]-() ON (e.name, e.fact, e.group_id)""",
         ]
-    else:
-        return [
-            """CREATE FULLTEXT INDEX episode_content IF NOT EXISTS 
-            FOR (e:Episodic) ON EACH [e.content, e.source, e.source_description, e.group_id]""",
-            """CREATE FULLTEXT INDEX node_name_and_summary IF NOT EXISTS 
-            FOR (n:Entity) ON EACH [n.name, n.summary, n.group_id]""",
-            """CREATE FULLTEXT INDEX community_name IF NOT EXISTS 
-            FOR (n:Community) ON EACH [n.name, n.group_id]""",
-            """CREATE FULLTEXT INDEX edge_name_and_fact IF NOT EXISTS 
-            FOR ()-[e:RELATES_TO]-() ON EACH [e.name, e.fact, e.group_id]""",
-        ]
+
+    return [
+        """CREATE FULLTEXT INDEX episode_content IF NOT EXISTS 
+        FOR (e:Episodic) ON EACH [e.content, e.source, e.source_description, e.group_id]""",
+        """CREATE FULLTEXT INDEX node_name_and_summary IF NOT EXISTS 
+        FOR (n:Entity) ON EACH [n.name, n.summary, n.group_id]""",
+        """CREATE FULLTEXT INDEX community_name IF NOT EXISTS 
+        FOR (n:Community) ON EACH [n.name, n.group_id]""",
+        """CREATE FULLTEXT INDEX edge_name_and_fact IF NOT EXISTS 
+        FOR ()-[e:RELATES_TO]-() ON EACH [e.name, e.fact, e.group_id]""",
+    ]
 
 
-def get_nodes_query(db_type: str = 'neo4j', name: str = '', query: str | None = None) -> str:
-    if db_type == 'kuzu':
-        return f'CALL db.index.fulltext.queryNodes("{name}", {query}, {{limit: $limit}})'
-    if db_type == 'falkordb':
+def get_nodes_query(provider: str, name: str, query_param: str) -> str:
+    if provider == 'kuzu':
+        label = INDEX_TO_LABEL_KUZU_MAPPING[name]
+        return f"CALL QUERY_FTS_INDEX('{label}', '{name}', {query_param}, TOP := $limit)"
+
+    if provider == 'falkordb':
         label = NEO4J_TO_FALKORDB_MAPPING[name]
-        return f"CALL db.idx.fulltext.queryNodes('{label}', {query})"
-    else:
-        return f'CALL db.index.fulltext.queryNodes("{name}", {query}, {{limit: $limit}})'
+        return f"CALL db.idx.fulltext.queryNodes('{label}', {query_param})"
+
+    return f'CALL db.index.fulltext.queryNodes("{name}", {query_param}, {{limit: $limit}})'
 
 
 def get_vector_cosine_func_query(property: str, param: str, provider: str) -> str:
@@ -111,48 +118,13 @@ def get_vector_cosine_func_query(property: str, param: str, provider: str) -> st
     return f'vector.similarity.cosine({property}, {param})'
 
 
-def get_relationships_query(name: str, db_type: str = 'neo4j') -> str:
-    if db_type == 'falkordb':
+def get_relationships_query(name: str, provider: str) -> str:
+    if provider == 'kuzu':
+        label = INDEX_TO_LABEL_KUZU_MAPPING[name]
+        return f"CALL QUERY_FTS_INDEX('{label}', '{name}', $query, TOP := $limit)"
+
+    if provider == 'falkordb':
         label = NEO4J_TO_FALKORDB_MAPPING[name]
         return f"CALL db.idx.fulltext.queryRelationships('{label}', $query)"
-    else:
-        return f'CALL db.index.fulltext.queryRelationships("{name}", $query, {{limit: $limit}})'
 
-
-def get_entity_node_save_bulk_query(nodes, db_type: str = 'neo4j') -> str | Any:
-    if db_type == 'falkordb':
-        queries = []
-        for node in nodes:
-            for label in node['labels']:
-                queries.append(
-                    (
-                        f"""
-                    UNWIND $nodes AS node
-                    MERGE (n:Entity {{uuid: node.uuid}})
-                    SET n:{label}
-                    SET n = node
-                    WITH n, node
-                    SET n.name_embedding = vecf32(node.name_embedding)
-                    RETURN n.uuid AS uuid
-                """,
-                        {'nodes': [node]},
-                    )
-                )
-        return queries
-    else:
-        return ENTITY_NODE_SAVE_BULK
-
-
-def get_entity_edge_save_bulk_query(db_type: str = 'neo4j') -> str:
-    if db_type == 'falkordb':
-        return """
-        UNWIND $entity_edges AS edge
-        MATCH (source:Entity {uuid: edge.source_node_uuid}) 
-        MATCH (target:Entity {uuid: edge.target_node_uuid}) 
-        MERGE (source)-[r:RELATES_TO {uuid: edge.uuid}]->(target)
-        SET r = {uuid: edge.uuid, name: edge.name, group_id: edge.group_id, fact: edge.fact, episodes: edge.episodes, 
-        created_at: edge.created_at, expired_at: edge.expired_at, valid_at: edge.valid_at, invalid_at: edge.invalid_at, fact_embedding: vecf32(edge.fact_embedding)}
-        WITH r, edge
-        RETURN edge.uuid AS uuid"""
-    else:
-        return ENTITY_EDGE_SAVE_BULK
+    return f'CALL db.index.fulltext.queryRelationships("{name}", $query, {{limit: $limit}})'

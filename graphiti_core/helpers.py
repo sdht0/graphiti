@@ -38,10 +38,10 @@ DEFAULT_PAGE_LIMIT = 20
 
 
 def RUNTIME_QUERY(provider: str) -> str:
-    if provider == 'kuzu':
+    if provider == 'kuzu' or not USE_PARALLEL_RUNTIME:
         return ''
 
-    return 'CYPHER runtime = parallel parallelRuntimeSupport=all\n' if USE_PARALLEL_RUNTIME else ''
+    return 'CYPHER runtime = parallel parallelRuntimeSupport=all\n'
 
 
 def parse_db_date(neo_date: neo4j_time.DateTime | str | None) -> datetime | None:
