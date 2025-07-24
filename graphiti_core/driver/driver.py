@@ -53,6 +53,10 @@ class GraphDriver(ABC):
         raise NotImplementedError()
 
     @abstractmethod
+    def print_graph(self):
+        raise NotImplementedError()
+
+    @abstractmethod
     def session(self, database: str | None = None) -> GraphDriverSession:
         raise NotImplementedError()
 

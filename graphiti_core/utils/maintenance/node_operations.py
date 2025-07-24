@@ -70,7 +70,7 @@ async def extract_nodes(
     clients: GraphitiClients,
     episode: EpisodicNode,
     previous_episodes: list[EpisodicNode],
-    entity_types: dict[str, BaseModel] | None = None,
+    entity_types: dict[str, type[BaseModel]] | None = None,
     excluded_entity_types: list[str] | None = None,
 ) -> list[EntityNode]:
     start = time()
@@ -181,7 +181,7 @@ async def resolve_extracted_nodes(
     extracted_nodes: list[EntityNode],
     episode: EpisodicNode | None = None,
     previous_episodes: list[EpisodicNode] | None = None,
-    entity_types: dict[str, BaseModel] | None = None,
+    entity_types: dict[str, type[BaseModel]] | None = None,
     existing_nodes_override: list[EntityNode] | None = None,
 ) -> tuple[list[EntityNode], dict[str, str], list[tuple[EntityNode, EntityNode]]]:
     llm_client = clients.llm_client
@@ -224,7 +224,7 @@ async def resolve_extracted_nodes(
         ],
     )
 
-    entity_types_dict: dict[str, BaseModel] = entity_types if entity_types is not None else {}
+    entity_types_dict: dict[str, type[BaseModel]] = entity_types if entity_types is not None else {}
 
     # Prepare context for LLM
     extracted_nodes_context = [
@@ -298,7 +298,7 @@ async def extract_attributes_from_nodes(
     nodes: list[EntityNode],
     episode: EpisodicNode | None = None,
     previous_episodes: list[EpisodicNode] | None = None,
-    entity_types: dict[str, BaseModel] | None = None,
+    entity_types: dict[str, type[BaseModel]] | None = None,
 ) -> list[EntityNode]:
     llm_client = clients.llm_client
     embedder = clients.embedder
@@ -327,7 +327,7 @@ async def extract_attributes_from_node(
     node: EntityNode,
     episode: EpisodicNode | None = None,
     previous_episodes: list[EpisodicNode] | None = None,
-    entity_type: BaseModel | None = None,
+    entity_type: type[BaseModel] | None = None,
 ) -> EntityNode:
     node_context: dict[str, Any] = {
         'name': node.name,

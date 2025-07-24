@@ -25,16 +25,14 @@ from typing_extensions import Any
 from graphiti_core.driver.driver import GraphDriver, GraphDriverSession
 from graphiti_core.edges import Edge, EntityEdge, EpisodicEdge, create_entity_edge_embeddings
 from graphiti_core.embedder import EmbedderClient
-from graphiti_core.graph_queries import (
-    get_entity_edge_save_bulk_query,
-    get_entity_node_save_bulk_query,
-)
 from graphiti_core.graphiti_types import GraphitiClients
 from graphiti_core.helpers import normalize_l2, semaphore_gather
 from graphiti_core.models.edges.edge_db_queries import (
+    ENTITY_EDGE_SAVE_BULK,
     EPISODIC_EDGE_SAVE_BULK,
 )
 from graphiti_core.models.nodes.node_db_queries import (
+    ENTITY_NODE_SAVE_BULK,
     EPISODIC_NODE_SAVE_BULK,
 )
 from graphiti_core.nodes import EntityNode, EpisodeType, EpisodicNode, create_entity_node_embeddings
@@ -139,6 +137,7 @@ async def add_nodes_and_edges_bulk_tx(
     for edge in entity_edges:
         if edge.fact_embedding is None:
             await edge.generate_embedding(embedder)
+
         edge_data: dict[str, Any] = {
             'uuid': edge.uuid,
             'source_node_uuid': edge.source_node_uuid,
@@ -154,16 +153,20 @@ async def add_nodes_and_edges_bulk_tx(
             'invalid_at': edge.invalid_at,
         }
 
+        if driver.provider == 'kuzu' and edge.attributes is not None:
+            raise NotImplementedError('Kuzu does not support edge attributes')
+
         edge_data.update(edge.attributes or {})
         edges.append(edge_data)
 
-    await tx.run(EPISODIC_NODE_SAVE_BULK, episodes=episodes)
-    entity_node_save_bulk = get_entity_node_save_bulk_query(nodes, driver.provider)
+    await tx.run(EPISODIC_NODE_SAVE_BULK(driver.provider), episodes=episodes)
+    entity_node_save_bulk = ENTITY_NODE_SAVE_BULK(nodes, driver.provider)
     await tx.run(entity_node_save_bulk, nodes=nodes)
     await tx.run(
-        EPISODIC_EDGE_SAVE_BULK, episodic_edges=[edge.model_dump() for edge in episodic_edges]
+        EPISODIC_EDGE_SAVE_BULK(driver.provider),
+        episodic_edges=[edge.model_dump() for edge in episodic_edges],
     )
-    entity_edge_save_bulk = get_entity_edge_save_bulk_query(driver.provider)
+    entity_edge_save_bulk = ENTITY_EDGE_SAVE_BULK(driver.provider)
     await tx.run(entity_edge_save_bulk, entity_edges=edges)
 
 
@@ -171,7 +174,7 @@ async def extract_nodes_and_edges_bulk(
     clients: GraphitiClients,
     episode_tuples: list[tuple[EpisodicNode, list[EpisodicNode]]],
     edge_type_map: dict[tuple[str, str], list[str]],
-    entity_types: dict[str, BaseModel] | None = None,
+    entity_types: dict[str, type[BaseModel]] | None = None,
     excluded_entity_types: list[str] | None = None,
     edge_types: dict[str, BaseModel] | None = None,
 ) -> tuple[list[list[EntityNode]], list[list[EntityEdge]]]:
@@ -204,7 +207,7 @@ async def dedupe_nodes_bulk(
     clients: GraphitiClients,
     extracted_nodes: list[list[EntityNode]],
     episode_tuples: list[tuple[EpisodicNode, list[EpisodicNode]]],
-    entity_types: dict[str, BaseModel] | None = None,
+    entity_types: dict[str, type[BaseModel]] | None = None,
 ) -> tuple[dict[str, list[EntityNode]], dict[str, str]]:
     embedder = clients.embedder
     min_score = 0.8

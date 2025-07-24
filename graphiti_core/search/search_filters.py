@@ -52,13 +52,18 @@ class SearchFilters(BaseModel):
 
 def node_search_filter_query_constructor(
     filters: SearchFilters,
+    provider: str,
 ) -> tuple[str, dict[str, Any]]:
     filter_query: str = ''
     filter_params: dict[str, Any] = {}
 
     if filters.node_labels is not None:
-        node_labels = '|'.join(filters.node_labels)
-        node_label_filter = ' AND n:' + node_labels
+        if provider == 'kuzu':
+            node_label_filter = '\nAND list_has_all(n.labels, $node_labels)'
+            filter_params['node_labels'] = filters.node_labels
+        else:
+            node_labels = '|'.join(filters.node_labels)
+            node_label_filter = ' AND n:' + node_labels
         filter_query += node_label_filter
 
     return filter_query, filter_params
@@ -66,19 +71,24 @@ def node_search_filter_query_constructor(
 
 def edge_search_filter_query_constructor(
     filters: SearchFilters,
+    provider: str,
 ) -> tuple[str, dict[str, Any]]:
     filter_query: str = ''
     filter_params: dict[str, Any] = {}
 
     if filters.edge_types is not None:
         edge_types = filters.edge_types
-        edge_types_filter = '\nAND r.name in $edge_types'
+        edge_types_filter = '\nAND e.name in $edge_types'
         filter_query += edge_types_filter
         filter_params['edge_types'] = edge_types
 
     if filters.node_labels is not None:
-        node_labels = '|'.join(filters.node_labels)
-        node_label_filter = '\nAND n:' + node_labels + ' AND m:' + node_labels
+        if provider == 'kuzu':
+            node_label_filter = '\nAND list_has_all(n.labels, $node_labels) AND list_has_all(m.labels, $node_labels)'
+            filter_params['node_labels'] = filters.node_labels
+        else:
+            node_labels = '|'.join(filters.node_labels)
+            node_label_filter = '\nAND n:' + node_labels + ' AND m:' + node_labels
         filter_query += node_label_filter
 
     if filters.valid_at is not None:
@@ -88,7 +98,7 @@ def edge_search_filter_query_constructor(
                 filter_params['valid_at_' + str(j)] = date_filter.date
 
             and_filters = [
-                '(r.valid_at ' + date_filter.comparison_operator.value + f' $valid_at_{j})'
+                '(e.valid_at ' + date_filter.comparison_operator.value + f' $valid_at_{j})'
                 for j, date_filter in enumerate(or_list)
             ]
             and_filter_query = ''
@@ -113,7 +123,7 @@ def edge_search_filter_query_constructor(
                 filter_params['invalid_at_' + str(j)] = date_filter.date
 
             and_filters = [
-                '(r.invalid_at ' + date_filter.comparison_operator.value + f' $invalid_at_{j})'
+                '(e.invalid_at ' + date_filter.comparison_operator.value + f' $invalid_at_{j})'
                 for j, date_filter in enumerate(or_list)
             ]
             and_filter_query = ''
@@ -138,7 +148,7 @@ def edge_search_filter_query_constructor(
                 filter_params['created_at_' + str(j)] = date_filter.date
 
             and_filters = [
-                '(r.created_at ' + date_filter.comparison_operator.value + f' $created_at_{j})'
+                '(e.created_at ' + date_filter.comparison_operator.value + f' $created_at_{j})'
                 for j, date_filter in enumerate(or_list)
             ]
             and_filter_query = ''
@@ -163,7 +173,7 @@ def edge_search_filter_query_constructor(
                 filter_params['expired_at_' + str(j)] = date_filter.date
 
             and_filters = [
-                '(r.expired_at ' + date_filter.comparison_operator.value + f' $expired_at_{j})'
+                '(e.expired_at ' + date_filter.comparison_operator.value + f' $expired_at_{j})'
                 for j, date_filter in enumerate(or_list)
             ]
             and_filter_query = ''

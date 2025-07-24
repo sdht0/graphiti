@@ -31,35 +31,53 @@ logger = logging.getLogger(__name__)
 
 async def build_indices_and_constraints(driver: GraphDriver, delete_existing: bool = False):
     if delete_existing:
-        records, _, _ = await driver.execute_query(
-            """
-        SHOW INDEXES YIELD name
-        """,
-        )
-        index_names = [record['name'] for record in records]
-        await semaphore_gather(
-            *[
-                driver.execute_query(
-                    """DROP INDEX $name""",
-                    name=name,
-                )
-                for name in index_names
-            ]
-        )
+        if driver.provider == 'kuzu':
+            records, _, _ = await driver.execute_query(
+                """
+                CALL SHOW_INDEXES() RETURN *;
+                """,
+            )
+            for index in records:
+                if index['index type'] == 'FTS':
+                    await driver.execute_query(
+                        "CALL DROP_FTS_INDEX($table, $index);",
+                        table=index['table name'],
+                        index=index['index name'],
+                    )
+        else:
+            records, _, _ = await driver.execute_query(
+                """
+            SHOW INDEXES YIELD name
+            """,
+            )
+            index_names = [record['name'] for record in records]
+            await semaphore_gather(
+                *[
+                    driver.execute_query(
+                        """DROP INDEX $name""",
+                        name=name,
+                    )
+                    for name in index_names
+                ]
+            )
     range_indices: list[LiteralString] = get_range_indices(driver.provider)
 
     fulltext_indices: list[LiteralString] = get_fulltext_indices(driver.provider)
 
     index_queries: list[LiteralString] = range_indices + fulltext_indices
 
-    await semaphore_gather(
-        *[
-            driver.execute_query(
-                query,
-            )
-            for query in index_queries
-        ]
-    )
+    if driver.provider == 'kuzu':
+        for query in index_queries:
+            await driver.execute_query(query)
+    else:
+        await semaphore_gather(
+            *[
+                driver.execute_query(
+                    query,
+                )
+                for query in index_queries
+            ]
+        )
 
 
 async def clear_data(driver: GraphDriver, group_ids: list[str] | None = None):
@@ -108,8 +126,9 @@ async def retrieve_episodes(
 
     query: LiteralString = (
         """
-                                MATCH (e:Episodic) WHERE e.valid_at <= $reference_time
-                                """
+        MATCH (e:Episodic)
+        WHERE e.valid_at <= $reference_time
+        """
         + group_id_filter
         + source_filter
         + """

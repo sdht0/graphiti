@@ -47,7 +47,13 @@ class Neo4jDriver(GraphDriver):
 
         result = await self.client.execute_query(cypher_query_, parameters_=params, **kwargs)
 
+        print('neo4j: query = ', cypher_query_)
+        print('neo4j: params = ', params)
+
         return result
+
+    async def print_graph(self):
+        pass
 
     def session(self, database: str | None = None) -> GraphDriverSession:
         _database = database or self._database

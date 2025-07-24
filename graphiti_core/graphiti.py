@@ -235,6 +235,8 @@ class Graphiti:
         elif 'groq' in class_name:
             return 'groq'
         # Database providers
+        elif 'kuzu' in class_name:
+            return 'kuzu'
         elif 'neo4j' in class_name:
             return 'neo4j'
         elif 'falkor' in class_name:
@@ -356,7 +358,7 @@ class Graphiti:
         group_id: str | None = None,
         uuid: str | None = None,
         update_communities: bool = False,
-        entity_types: dict[str, BaseModel] | None = None,
+        entity_types: dict[str, type[BaseModel]] | None = None,
         excluded_entity_types: list[str] | None = None,
         previous_episode_uuids: list[str] | None = None,
         edge_types: dict[str, BaseModel] | None = None,
@@ -541,8 +543,8 @@ class Graphiti:
     async def add_episode_bulk(
         self,
         bulk_episodes: list[RawEpisode],
-        group_id: str | None = None,
-        entity_types: dict[str, BaseModel] | None = None,
+        group_id: str = '',
+        entity_types: dict[str, type[BaseModel]] | None = None,
         excluded_entity_types: list[str] | None = None,
         edge_types: dict[str, BaseModel] | None = None,
         edge_type_map: dict[tuple[str, str], list[str]] | None = None,

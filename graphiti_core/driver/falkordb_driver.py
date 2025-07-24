@@ -140,6 +140,9 @@ class FalkorDriver(GraphDriver):
 
         return records, header, None
 
+    async def print_graph(self):
+        pass
+
     def session(self, database: str | None = None) -> GraphDriverSession:
         return FalkorDriverSession(self._get_graph(database))
 
